@@ -44,6 +44,10 @@ import devp2p.utils as utils
 hmac_sha256 = pyelliptic.hmac_sha256
 
 
+class ECIESDecryptionError(Exception):
+    pass
+
+
 class ECCx(pyelliptic.ECC):
 
     """
@@ -179,7 +183,7 @@ class ECCx(pyelliptic.ECC):
 
         """
         if data[0] != chr(0x04):
-            raise RuntimeError("wrong ecies header")
+            raise ECIESDecryptionError("wrong ecies header")
 
         #  1) generate shared-secret = kdf( ecdhAgree(myPrivKey, msg[1:65]) )
         _shared = data[1:1 + 64]
@@ -199,7 +203,7 @@ class ECCx(pyelliptic.ECC):
 
         # 2) verify tag
         if not pyelliptic.equals(hmac_sha256(key_mac, data[1 + 64:- 32]), tag):
-            raise RuntimeError("Fail to verify data")
+            raise ECIESDecryptionError("Fail to verify data")
 
         # 3) decrypt
         blocksize = pyelliptic.OpenSSL.get_cipher(self.ecies_ciphername).get_blocksize()

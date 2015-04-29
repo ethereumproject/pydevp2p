@@ -345,7 +345,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
             Expiration uint64
         }
         """
-        assert node != self.this_node
+        assert isinstance(node, type(self.this_node)) and node != self.this_node
         log.debug('>>> ping', remoteid=node)
         version = rlp.sedes.big_endian_int.serialize(self.version)
         ip = self.app.config['discovery']['listen_host']    # FIXME: P2P or discovery?
@@ -524,7 +524,8 @@ class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
             self.server.sendto(message, (address.ip, address.port))
         except gevent.socket.error as e:
             log.critical('udp write error', errno=e.errno, reason=e.strerror)
-            self.app.stop()
+            log.critical('waiting for recovery')
+            gevent.sleep(5.)
 
     def receive(self, address, message):
         assert isinstance(address, Address)

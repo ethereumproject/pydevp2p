@@ -6,6 +6,7 @@ from p2p_protocol import P2PProtocol
 from service import WiredService
 import multiplexer
 from muxsession import MultiplexedSession
+from crypto import ECIESDecryptionError
 import slogging
 import gevent.socket
 import rlpxcipher
@@ -210,7 +211,7 @@ class Peer(gevent.Greenlet):
             if imsg:
                 try:
                     self.mux.add_message(imsg)
-                except rlpxcipher.RLPxSessionError as e:
+                except (rlpxcipher.RLPxSessionError, ECIESDecryptionError) as e:
                     log.debug('rlpx session error', peer=self, error=e)
                     self.report_error('rlpx session error')
                     self.stop()
