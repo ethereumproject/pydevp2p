@@ -426,9 +426,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
         };
         """
         assert isinstance(target_node_id, long)
-        target_node_id = utils.int_to_big_endian(target_node_id).rjust(kademlia.k_id_size / 8,
+        target_node_id = utils.int_to_big_endian(target_node_id).rjust(kademlia.k_pubkey_size / 8,
                                                                        '\0')
-        assert len(target_node_id) == kademlia.k_id_size / 8
+        assert len(target_node_id) == kademlia.k_pubkey_size / 8
         log.debug('>>> find_node', remoteid=node)
         message = self.pack(self.cmd_id_map['find_node'], [target_node_id])
         self.send(node, message)
@@ -436,7 +436,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
     def recv_find_node(self, nodeid, payload, mdc):
         node = self.get_node(nodeid)
         log.debug('<<< find_node', remoteid=node)
-        assert len(payload[0]) == kademlia.k_id_size / 8
+        assert len(payload[0]) == kademlia.k_pubkey_size / 8
         target = utils.big_endian_to_int(payload[0])
         self.kademlia.recv_find_node(node, target)
 

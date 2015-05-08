@@ -31,7 +31,7 @@ k_request_timeout = 3 * 300 / 1000.      # timeout of message round trips
 k_idle_bucket_refresh_interval = 3600    # ping all nodes in bucket if bucket was idle
 k_find_concurrency = 3                   # parallel find node lookups
 k_pubkey_size = 512
-k_id_size = 512
+k_id_size = 256
 k_max_node_id = 2 ** k_id_size - 1
 
 
