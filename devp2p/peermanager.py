@@ -165,7 +165,7 @@ class PeerManager(WiredService):
                     continue
                 if node.pubkey in [p.remote_pubkey for p in self.peers]:
                     continue
-                self.connect((node.address.ip, node.address.port), node.pubkey)
+                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
             gevent.sleep(loop_delay)
 
         evt = gevent.event.Event()

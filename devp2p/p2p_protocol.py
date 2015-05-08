@@ -65,7 +65,7 @@ class P2PProtocol(BaseProtocol):
     """
     protocol_id = 0
     name = 'p2p'
-    version = 3
+    version = 4
     max_cmd_id = 15
 
     def __init__(self, peer, service):

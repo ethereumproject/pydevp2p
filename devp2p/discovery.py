@@ -29,6 +29,9 @@ class InvalidSignature(DefectiveMessage):
 class PacketExpired(DefectiveMessage):
     pass
 
+enc_port = lambda p: utils.ienc4(p)[-2:]
+dec_port = utils.idec
+
 
 class Address(object):
 
@@ -38,71 +41,63 @@ class Address(object):
     https://github.com/haypo/python-ipy
     """
 
-    def __init__(self, ip, port, from_binary=False):
+    def __init__(self, ip, udp_port, tcp_port=0, from_binary=False):
+        tcp_port = tcp_port or udp_port
         if from_binary:
             assert len(ip) in (4, 16), repr(ip)
             self._ip = ipaddress.ip_address(ip)
-            self.port = utils.idec(port)
+            self.udp_port = dec_port(udp_port)
+            self.tcp_port = dec_port(tcp_port)
         else:
-            assert isinstance(port, (int, long))
+            assert isinstance(udp_port, (int, long))
+            assert isinstance(tcp_port, (int, long))
             self._ip = ipaddress.ip_address(unicode(ip))
-            self.port = port
+            self.udp_port = udp_port
+            self.tcp_port = tcp_port
 
     @property
     def ip(self):
         return str(self._ip)
 
+    def update(self, addr):
+        if not self.tcp_port:
+            self.tcp_port = addr.tcp_port
+
     def __eq__(self, other):
-        return self.to_dict() == other.to_dict()
+        # addresses equal if they share ip and udp_port
+        return (self.ip, self.udp_port) == (other.ip, other.udp_port)
 
     def __repr__(self):
-        return 'Address(%s:%s)' % (self.ip, self.port)
+        return 'Address(%s:%s)' % (self.ip, self.udp_port)
 
     def to_dict(self):
-        return dict(ip=self.ip, port=self.port)
+        return dict(ip=self.ip, udp_port=self.udp_port, tcp_port=self.tcp_port)
 
     def to_binary(self):
-        return list((self._ip.packed, utils.ienc(self.port)))
-
-    @classmethod
-    def from_binary(self, ip, port):
-        return Address(ip, port, from_binary=True)
-
-    def to_endpoint(self):
         """
         struct Endpoint
-        {
-            unsigned network; // ipv4:4, ipv6:6
-            unsigned transport; // tcp:6, udp:17
-            unsigned address; // BE encoded 32-bit or 128-bit unsigned (layer3 address)
-            unsigned port; // BE encoded 16-bit unsigned (layer4 port)
-        }
+            unsigned address; // BE encoded 32-bit or 128-bit unsigned (layer3 address; size determins ipv4 vs ipv6)
+            unsigned udpPort; // BE encoded 16-bit unsigned
+            unsigned tcpPort; // BE encoded 16-bit unsigned        }
         """
-        transport = 6
-        r = [utils.ienc(self._ip.version), utils.ienc(transport)]
-        r += [self._ip.packed, utils.ienc(self.port)]
-        return r
+        return list((self._ip.packed, enc_port(self.udp_port), enc_port(self.tcp_port)))
+    to_endpoint = to_binary
 
     @classmethod
-    def from_endpoint(self, data):
-        assert isinstance(data, list) and len(data) == 4
-        version = utils.idec(data[0])
-        assert version in (4, 6)
-        transport = utils.idec(data[1])
-        assert transport == 6
-        assert len(data[2]) == {4: 4, 6: 16}[version]
-        return Address(data[2], data[3], from_binary=True)
+    def from_binary(self, ip, udp_port, tcp_port='\x00\x00'):
+        return Address(ip, udp_port, tcp_port, from_binary=True)
+    from_endpoint = from_binary
 
-    def to_wire_enc(self):
-        # return [str(self.ip), struct.pack('>H', self.port)]
-        return [str(self.ip), rlp.sedes.big_endian_int.serialize(self.port)]
+    # def to_wire_enc(self):
+    # return [str(self.ip), struct.pack('>H', self.port)]
+    #     return [str(self.ip), rlp.sedes.big_endian_int.serialize(self.port)]
 
-    @classmethod
-    def from_wire_enc(self, data):
-        assert isinstance(data, (list, tuple)) and len(data) == 2
-        assert isinstance(data[0], str)
-        port = rlp.sedes.big_endian_int.deserialize(data[1])
-        return Address(data[0], port)
+    # @classmethod
+    # def from_wire_enc(self, data):
+    #     assert isinstance(data, (list, tuple)) and len(data) == 2
+    #     assert isinstance(data[0], str)
+    #     port = rlp.sedes.big_endian_int.deserialize(data[1])
+    #     return Address(data[0], port)
 
 
 class Node(kademlia.Node):
@@ -120,7 +115,7 @@ class Node(kademlia.Node):
         return cls(pubkey, Address(ip, int(port)))
 
     def to_uri(self):
-        return utils.host_port_pubkey_to_uri(self.address.ip, self.address.port, self.pubkey)
+        return utils.host_port_pubkey_to_uri(self.address.ip, self.address.udp_port, self.pubkey)
 
 
 class DiscoveryProtocolTransport(object):
@@ -189,7 +184,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
     The date should be interpreted as a UNIX timestamp.
     The receiver should discard any packet whose `Expiration` value is in the past.
     """
-    version = 3
+    version = 4
     expiration = 60  # let messages expire after N secondes
     cmd_id_map = dict(ping=1, pong=2, find_node=3, neighbours=4)
     rev_cmd_id_map = dict((v, k) for k, v in cmd_id_map.items())
@@ -271,7 +266,6 @@ class DiscoveryProtocol(kademlia.WireInterface):
         cmd_id = self.encoders['cmd_id'](cmd_id)
         expiration = self.encoders['expiration'](int(time.time() + self.expiration))
         encoded_data = rlp.encode(payload + [expiration])
-        # print rlp.decode(encoded_data)
         signed_data = crypto.sha3(cmd_id + encoded_data)
         signature = crypto.sign(signed_data, self.privkey)
         # assert crypto.verify(self.pubkey, signature, signed_data)
@@ -280,8 +274,6 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert len(signature) == 65
         mdc = crypto.sha3(signature + cmd_id + encoded_data)
         assert len(mdc) == 32
-        # print dict(mdc=mdc.encode('hex'), signature=signature.encode('hex'),
-        #            data=str(cmd_id + encoded_data).encode('hex'))
         return mdc + signature + cmd_id + encoded_data
 
     def unpack(self, message):
@@ -338,19 +330,31 @@ class DiscoveryProtocol(kademlia.WireInterface):
 
         PingNode packet-type: 0x01
 
-        ping struct {
-            Version    uint   // must match Version
-            IP         string // our IP
-            Port       uint16 // our port
-            Expiration uint64
+        PingNode packet-type: 0x01
+        struct PingNode             <= 59 bytes
+        {
+            h256 version = 0x3;     <= 1
+            Endpoint from;          <= 23
+            Endpoint to;            <= 23
+            unsigned expiration;    <= 9
+        };
+
+        struct Endpoint             <= 24 == [17,3,3]
+        {
+            unsigned address; // BE encoded 32-bit or 128-bit unsigned (layer3 address; size determins ipv4 vs ipv6)
+            unsigned udpPort; // BE encoded 16-bit unsigned
+            unsigned tcpPort; // BE encoded 16-bit unsigned
         }
         """
         assert isinstance(node, type(self.this_node)) and node != self.this_node
         log.debug('>>> ping', remoteid=node)
         version = rlp.sedes.big_endian_int.serialize(self.version)
         ip = self.app.config['discovery']['listen_host']    # FIXME: P2P or discovery?
-        port = self.app.config['discovery']['listen_port']
-        payload = [version] + Address(ip, port).to_wire_enc()
+        udp_port = self.app.config['discovery']['listen_port']
+        tcp_port = self.app.config['p2p']['listen_port']
+        payload = [version,
+                   Address(ip, udp_port, tcp_port).to_endpoint(),
+                   node.address.to_endpoint()]
         assert len(payload) == 3
         message = self.pack(self.cmd_id_map['ping'], payload)
         self.send(node, message)
@@ -370,7 +374,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
         if version != self.version:
             log.error('wrong version', remote_version=version, expected_version=self.version)
             return
-        address = Address.from_wire_enc(payload[1:])  # FIXME: how to use this?
+        remote_address = Address.from_endpoint(*payload[1])  # from address
+        my_address = Address.from_endpoint(*payload[2])  # my address
+        self.get_node(nodeid).address.update(remote_address)
         self.kademlia.recv_ping(node, echo=mdc)
 
     def send_pong(self, node, token):
@@ -380,18 +386,24 @@ class DiscoveryProtocol(kademlia.WireInterface):
         Pong is the reply to a Ping packet.
 
         Pong packet-type: 0x02
-        struct Pong  // response to PingNode
+        struct Pong                 <= 66 bytes
         {
-            h256 echo; // hash of PingNode payload
+            Endpoint to;
+            h256 echo;
             unsigned expiration;
         };
         """
         log.debug('>>> pong', remoteid=node)
-        message = self.pack(self.cmd_id_map['pong'], [token])
+        payload = [node.address.to_endpoint(), token]
+        message = self.pack(self.cmd_id_map['pong'], payload)
         self.send(node, message)
 
     def recv_pong(self, nodeid,  payload, mdc):
-        echoed = payload[0]
+        if not len(payload) == 2:
+            log.error('invalid pong payload', payload=payload)
+            return
+        my_address = Address.from_endpoint(*payload[0])
+        echoed = payload[1]
         if nodeid in self.nodes:
             node = self.get_node(nodeid)
             self.kademlia.recv_pong(node, echoed)
@@ -407,9 +419,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
         nodes closest to target that it knows about.
 
         FindNode packet-type: 0x03
-        struct FindNode
+        struct FindNode             <= 76 bytes
         {
-            NodeId target;
+            NodeId target; // Id of a node. The responding node will send back nodes closest to the target.
             unsigned expiration;
         };
         """
@@ -436,15 +448,14 @@ class DiscoveryProtocol(kademlia.WireInterface):
         the sender knows which are closest to the requested `Target`.
 
         Neighbors packet-type: 0x04
-        struct Neighbors  // reponse to FindNode
+        struct Neighbours           <= 1423
         {
-            struct Node
+            list nodes: struct Neighbour    <= 88: 1411; 76: 1219
             {
-                Endpoint endpoint;
+                inline Endpoint endpoint;
                 NodeId node;
             };
 
-            std::list<Node> nodes;
             unsigned expiration;
         };
         """
@@ -452,7 +463,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert not neighbours or isinstance(neighbours[0], Node)
         nodes = []
         for n in neighbours:
-            l = n.address.to_wire_enc() + [n.pubkey]
+            l = n.address.to_endpoint() + [n.pubkey]
             nodes.append(l)
         log.debug('>>> neighbours', remoteid=node, count=len(nodes))
         message = self.pack(self.cmd_id_map['neighbours'], [nodes])
@@ -469,8 +480,13 @@ class DiscoveryProtocol(kademlia.WireInterface):
         if len(neighbours_set) < len(neighbours_lst):
             log.warn('received duplicates')
 
-        for (ip, port, nodeid) in neighbours_set:
-            address = Address.from_wire_enc((ip, port))
+        for n in neighbours_set:
+            if len(n) != 4 or len(n[0]) not in (4, 16):
+                log.error('invalid neighbours format', neighbours=n)
+                return
+            n = list(n)
+            nodeid = n.pop()
+            address = Address.from_endpoint(*n)
             node = self.get_node(nodeid, address)
             assert node.address
             neighbours.append(node)
@@ -521,7 +537,7 @@ class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
         assert isinstance(address, Address)
         log.debug('sending', size=len(message), to=address)
         try:
-            self.server.sendto(message, (address.ip, address.port))
+            self.server.sendto(message, (address.ip, address.udp_port))
         except gevent.socket.error as e:
             log.critical('udp write error', errno=e.errno, reason=e.strerror)
             log.critical('waiting for recovery')
@@ -534,7 +550,7 @@ class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
     def _handle_packet(self, message, ip_port):
         log.debug('handling packet', address=ip_port, size=len(message))
         assert len(ip_port) == 2
-        address = Address(ip=ip_port[0], port=ip_port[1])
+        address = Address(ip=ip_port[0], udp_port=ip_port[1])
         self.receive(address, message)
 
     def start(self):
