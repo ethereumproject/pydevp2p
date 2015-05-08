@@ -351,7 +351,8 @@ class KademliaProtocol(object):
     def bootstrap(self, nodes):
         assert isinstance(nodes, list)
         for node in nodes:
-            assert node != self.this_node
+            if node == self.this_node:
+                continue
             self.routing.add_node(node)
             self.find_node(self.this_node.id, via_node=node)
 
