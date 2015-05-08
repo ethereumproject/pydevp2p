@@ -1,3 +1,4 @@
+import time
 import gevent
 import operator
 from collections import OrderedDict
@@ -209,6 +210,7 @@ class Peer(gevent.Greenlet):
                     raise e
                     break
             if imsg:
+                log.debug('read message', ts=time.time())
                 try:
                     self.mux.add_message(imsg)
                 except (rlpxcipher.RLPxSessionError, ECIESDecryptionError) as e:

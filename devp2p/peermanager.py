@@ -2,6 +2,7 @@ import random
 import gevent
 import socket
 import atexit
+import time
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
 from service import WiredService
@@ -87,6 +88,7 @@ class PeerManager(WiredService):
             # sequential uploads
             # wait until the message is out, before initiating next
             peer.safe_to_read.wait()
+            log.debug('broadcasting done', ts=time.time())
 
     def _start_peer(self, connection, address, remote_pubkey=None):
         log.debug('new connect', connection=connection, incoming=bool(not remote_pubkey))
