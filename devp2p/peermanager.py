@@ -15,7 +15,7 @@ import crypto
 import utils
 
 import slogging
-log = slogging.get_logger('peermgr')
+log = slogging.get_logger('p2p.peermgr')
 
 
 class PeerManager(WiredService):
@@ -60,7 +60,7 @@ class PeerManager(WiredService):
 
     def on_hello_received(self, proto, version, client_version, capabilities, listen_port, nodeid):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
-        if len(self.peers) > self.config['p2p']['max_peers']:
+        if len(self.peers) > max(self.config['p2p']['max_peers'], self.config['p2p']['max_peers']):
             log.debug('too many peers', max=self.config['p2p']['max_peers'])
             proto.send_disconnect(proto.disconnect.reason.too_many_peers)
             return False

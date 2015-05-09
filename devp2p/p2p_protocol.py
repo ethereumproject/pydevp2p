@@ -54,7 +54,7 @@ class ConnectionMonitor(gevent.Greenlet):
 
 ########################################
 
-log = slogging.get_logger('protocol.p2p')
+log = slogging.get_logger('p2p.protocol')
 
 
 class P2PProtocol(BaseProtocol):

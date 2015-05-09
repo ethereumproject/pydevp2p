@@ -26,6 +26,10 @@ class InvalidSignature(DefectiveMessage):
     pass
 
 
+class WrongMAC(DefectiveMessage):
+    pass
+
+
 class PacketExpired(DefectiveMessage):
     pass
 
@@ -285,7 +289,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
         shouldhash := crypto.Sha3(buf[macSize:])
         """
         mdc = message[:32]
-        assert mdc == crypto.sha3(message[32:])
+        if mdc != crypto.sha3(message[32:]):
+            log.warn('packet with wrong mcd')
+            raise WrongMAC()
         signature = message[32:97]
         assert len(signature) == 65
         signed_data = crypto.sha3(message[97:])
@@ -307,7 +313,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert isinstance(address, Address)
         try:
             remote_pubkey, cmd_id, payload, mdc = self.unpack(message)
-        except PacketExpired:
+        except DefectiveMessage:
             return
         cmd = getattr(self, 'recv_' + self.rev_cmd_id_map[cmd_id])
         nodeid = remote_pubkey

@@ -12,7 +12,7 @@ import slogging
 import gevent.socket
 import rlpxcipher
 
-log = slogging.get_logger('peer')
+log = slogging.get_logger('p2p.peer')
 
 
 class Peer(gevent.Greenlet):
@@ -172,6 +172,7 @@ class Peer(gevent.Greenlet):
         self.safe_to_read.clear()  # make sure we don't accept any data until message is sent
         try:
             self.connection.sendall(data)  # check if gevent chunkes and switches contexts
+            log.debug('wrote data', size=len(data), ts=time.time())
         except gevent.socket.error as e:
             log.info('write error', errno=e.errno, reason=e.strerror)
             self.report_error('write error %r' % e.strerror)
@@ -210,7 +211,7 @@ class Peer(gevent.Greenlet):
                     raise e
                     break
             if imsg:
-                log.debug('read message', ts=time.time())
+                log.debug('read message', ts=time.time(), size=len(imsg))
                 try:
                     self.mux.add_message(imsg)
                 except (rlpxcipher.RLPxSessionError, ECIESDecryptionError) as e:
