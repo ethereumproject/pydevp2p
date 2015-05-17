@@ -472,7 +472,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
             l = n.address.to_endpoint() + [n.pubkey]
             nodes.append(l)
         log.debug('>>> neighbours', remoteid=node, count=len(nodes))
-        message = self.pack(self.cmd_id_map['neighbours'], [nodes])
+        message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  #FIXME!!!
         self.send(node, message)
 
     def recv_neighbours(self, nodeid, payload, mdc):

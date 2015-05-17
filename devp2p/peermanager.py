@@ -143,7 +143,11 @@ class PeerManager(WiredService):
         super(PeerManager, self).start()
 
     def num_peers(self):
-        return len([p for p in self.peers if p])
+        ps = [p for p in self.peers if p]
+        aps = [p for p in ps if not p.is_stopped]
+        if len(ps) != len(aps):
+            log.error('stopped peers in peers list', inlist=len(ps), active=len(aps))
+        return len(aps)
 
     def _run(self):
         log.info('waiting for bootstrap')
