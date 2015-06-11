@@ -14,6 +14,10 @@ import rlpxcipher
 
 log = slogging.get_logger('p2p.peer')
 
+class UnknownCommandError(Exception):
+    "raised if we recive an unknown command for a known protocol"
+    pass
+
 
 class Peer(gevent.Greenlet):
 
@@ -155,12 +159,15 @@ class Peer(gevent.Greenlet):
             if packet.cmd_id < max_id + protocol.max_cmd_id + 1:
                 return protocol, packet.cmd_id - (0 if max_id == 0 else max_id + 1)
             max_id += protocol.max_cmd_id
-
-        raise Exception('no protocol for id %s' % packet.cmd_id)
+        raise UnknownCommandError('no protocol for id %s' % packet.cmd_id)
 
     def _handle_packet(self, packet):
         assert isinstance(packet, multiplexer.Packet)
-        protocol, cmd_id = self.protocol_cmd_id_from_packet(packet)
+        try:
+            protocol, cmd_id = self.protocol_cmd_id_from_packet(packet)
+        except UnknownCommandError, e:
+            log.error('received unknown cmd', error=e, packet=packet)
+            return
         log.debug('recv packet', cmd=protocol.cmd_by_id[
                   cmd_id], protocol=protocol.name, orig_cmd_id=packet.cmd_id)
         packet.cmd_id = cmd_id  # rewrite
