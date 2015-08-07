@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-https://github.com/ethereum/go-ethereum/wiki/RLPx-----Node-Discovery-Protocol
 
-"""
 import time
 import gevent
 import gevent.socket
@@ -207,10 +204,10 @@ class DiscoveryProtocol(kademlia.WireInterface):
         self.nodes = dict()   # nodeid->Node,  fixme should be loaded
         self.this_node = Node(self.pubkey, self.transport.address)
         self.kademlia = KademliaProtocolAdapter(self.this_node, wire=self)
-        uri = utils.host_port_pubkey_to_uri(self.app.config['discovery']['listen_host'],
-                                            self.app.config['discovery']['listen_port'],
-                                            self.pubkey)
-        log.info('starting discovery proto', enode=uri)  # FIXME external ip
+        this_enode = utils.host_port_pubkey_to_uri(self.app.config['discovery']['listen_host'],
+                                                   self.app.config['discovery']['listen_port'],
+                                                   self.pubkey)
+        log.info('starting discovery proto', this_enode=this_enode)
 
     def get_node(self, nodeid, address=None):
         "return node or create new, update address if supplied"
@@ -355,7 +352,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert isinstance(node, type(self.this_node)) and node != self.this_node
         log.debug('>>> ping', remoteid=node)
         version = rlp.sedes.big_endian_int.serialize(self.version)
-        ip = self.app.config['discovery']['listen_host']    # FIXME: P2P or discovery?
+        ip = self.app.config['discovery']['listen_host']
         udp_port = self.app.config['discovery']['listen_port']
         tcp_port = self.app.config['p2p']['listen_port']
         payload = [version,
@@ -472,7 +469,8 @@ class DiscoveryProtocol(kademlia.WireInterface):
             l = n.address.to_endpoint() + [n.pubkey]
             nodes.append(l)
         log.debug('>>> neighbours', remoteid=node, count=len(nodes))
-        message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  #FIXME!!!
+        # FIXME: don't brake udp packet size / chunk message / also when receiving
+        message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  # FIXME
         self.send(node, message)
 
     def recv_neighbours(self, nodeid, payload, mdc):

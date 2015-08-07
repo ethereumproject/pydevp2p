@@ -529,6 +529,7 @@ class KademliaProtocol(object):
             self.wire.send_find_node(n, targetid)
 
     def find_node(self, targetid, via_node=None):
+        # FIXME, amplification attack (need to ping pong ping pong first)
         assert isinstance(targetid, long)
         assert not via_node or isinstance(via_node, Node)
         self._find_requests[targetid] = time.time() + k_request_timeout
@@ -573,6 +574,7 @@ class KademliaProtocol(object):
                 self.ping(node)
 
     def recv_find_node(self, remote, targetid):
+        # FIXME, amplification attack (need to ping pong ping pong first)
         assert isinstance(remote, Node)
         assert isinstance(targetid, long)
         self.update(remote)

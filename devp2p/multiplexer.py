@@ -95,7 +95,6 @@ class Frame(object):
         self.cmd_id = cmd_id
         self.payload = payload
         if frame_cipher:
-            # assert isinstance(frame_cipher, FrameCipherBase)  # fixme
             self.frame_cipher = frame_cipher
         self.frames = frames or []
         assert protocol_id < 2**16

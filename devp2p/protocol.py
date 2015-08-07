@@ -1,4 +1,3 @@
-# https://github.com/ethereum/go-ethereum/wiki/Blockpool
 import gevent
 import rlp
 from rlp import sedes
@@ -10,7 +9,6 @@ log = slogging.get_logger('protocol')
 
 class ProtocolError(Exception):
     pass
-
 
 class SubProtocolError(ProtocolError):
     pass

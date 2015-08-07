@@ -7,7 +7,6 @@ from devp2p.crypto import ECCx
 from devp2p.crypto import ecdsa_recover
 from devp2p.crypto import ecdsa_verify
 import pyelliptic
-# from devp2p.utils import idec  # integer decode
 from devp2p.utils import ienc  # integer encode
 import Crypto.Cipher.AES as AES
 
@@ -68,10 +67,6 @@ class RLPxSession(object):
         self.ephemeral_ecc = ECCx(raw_privkey=ephemeral_privkey)
 
     def encrypt(self, header, frame):
-        """
-        # https://github.com/ethereum/go-ethereum/blob/develop/p2p/rlpx.go
-        # https://github.com/ethereum/cpp-ethereum/blob/develop/libp2p/RLPxFrameIO.cpp
-        """
         assert self.is_ready is True
         assert len(header) == 16
         assert len(frame) % 16 == 0
@@ -112,8 +107,6 @@ class RLPxSession(object):
 
         header_ciphertext = data[:16]
         header_mac = data[16:32]
-
-        # FIXME: how to restore mac if i received invalid data?
 
         # ingress-mac.update(aes(mac-secret,ingress-mac) ^ header-ciphertext).digest
         expected_header_mac = mac(sxor(self.mac_enc(mac()[:16]), header_ciphertext))[:16]
@@ -303,7 +296,6 @@ class RLPxSession(object):
         self.remote_token_found = bool(ord(auth_ack_message[-1]))
 
     def setup_cipher(self):
-        # https://github.com/ethereum/cpp-ethereum/blob/develop/libp2p/RLPxFrameIO.cpp#L34
         assert self.responder_nonce
         assert self.initiator_nonce
         assert self.auth_init
@@ -320,8 +312,8 @@ class RLPxSession(object):
         shared_secret = sha3(
             ecdhe_shared_secret + sha3(self.responder_nonce + self.initiator_nonce))
 
-        self.ecdhe_shared_secret = ecdhe_shared_secret  # FIXME DEBUG
-        self.shared_secret = shared_secret   # FIXME DEBUG
+        self.ecdhe_shared_secret = ecdhe_shared_secret  # used in tests
+        self.shared_secret = shared_secret   # used in tests
 
         # token = sha3(shared-secret)
         self.token = sha3(shared_secret)

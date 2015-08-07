@@ -1,15 +1,4 @@
 #!/usr/bin/python
-"""
-https://github.com/ethereum/go-ethereum/blob/develop/crypto/ecies/ecies.go
-
-https://github.com/ethereum/cpp-ethereum/blob/develop/libp2p/RLPxHandshake.cpp#L48
-https://github.com/ethereum/cpp-ethereum/blob/develop/libdevcrypto/CryptoPP.cpp#L149
-
-ECIES
-http://www.cryptopp.com/wiki/Elliptic_Curve_Integrated_Encryption_Scheme
-https://en.wikipedia.org/wiki/Integrated_Encryption_Scheme
-"""
-
 CIPHERNAMES = set(('aes-128-ctr',))
 
 import os
@@ -131,7 +120,6 @@ class ECCx(pyelliptic.ECC):
         3) generate R = rG [same op as generating a public key]
         4) send 0x04 || R || AsymmetricEncrypt(shared-secret, plaintext) || tag
 
-        https://github.com/ethereum/go-ethereum/blob/develop/crypto/ecies/params.go#L41
 
         currently used by go:
         ECIES_AES128_SHA256 = &ECIESParams{
@@ -169,7 +157,6 @@ class ECCx(pyelliptic.ECC):
         msg = chr(0x04) + ephem_pubkey + iv + ciphertext
 
         # the MAC of a message (called the tag) as per SEC 1, 3.5.
-        # https://github.com/ethereum/go-ethereum/blob/develop/crypto/ecies/ecies.go#L162
         tag = hmac_sha256(key_mac, msg[1 + 64:])
         assert len(tag) == 32
         msg += tag
@@ -309,9 +296,6 @@ def eciesKDF(key_material, key_len):
     for sha256, blocksize is 64 bytes
 
     NIST SP 800-56a Concatenation Key Derivation Function (see section 5.8.1).
-
-    https://github.com/ethereum/go-ethereum/blob/develop/crypto/ecies/ecies.go#L134
-    https://github.com/ethereum/cpp-ethereum/blob/develop/libdevcrypto/CryptoPP.cpp#L36
     """
     s1 = ""
     key = ""

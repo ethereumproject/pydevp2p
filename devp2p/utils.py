@@ -21,7 +21,7 @@ ienc4 = int_to_big_endian4
 node_uri_scheme = 'enode://'
 
 
-def host_port_pubkey_from_uri(uri):  # FIXME pubkey will be nodeid
+def host_port_pubkey_from_uri(uri):
     assert uri.startswith(node_uri_scheme) and '@' in uri and ':' in uri
     pubkey_hex, ip_port = uri[len(node_uri_scheme):].split('@')
     assert len(pubkey_hex) == 2 * 512 / 8
