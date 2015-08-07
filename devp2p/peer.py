@@ -205,11 +205,21 @@ class Peer(gevent.Greenlet):
 
         while not self.is_stopped:
             self.safe_to_read.wait()
-            gevent.socket.wait_read(self.connection.fileno())
+            try:
+                gevent.socket.wait_read(self.connection.fileno())
+            except gevent.socket.error as e:
+                log.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
+                self.report_error('network error %s' % e.strerror)
+                if e.errno in(9,):
+                    # ('Bad file descriptor')
+                    self.stop()
+                else:
+                    raise e
+                    break
             try:
                 imsg = self.connection.recv(4096)
             except gevent.socket.error as e:
-                log.info('read error', errno=e.errno, reason=e.strerror, peer=self)
+                log.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
                 self.report_error('network error %s' % e.strerror)
                 if e.errno in(50, 54, 60, 65):
                     # (Network down, Connection reset by peer, timeout, nor route to host)
