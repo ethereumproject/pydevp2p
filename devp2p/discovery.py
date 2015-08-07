@@ -89,17 +89,6 @@ class Address(object):
         return Address(ip, udp_port, tcp_port, from_binary=True)
     from_endpoint = from_binary
 
-    # def to_wire_enc(self):
-    # return [str(self.ip), struct.pack('>H', self.port)]
-    #     return [str(self.ip), rlp.sedes.big_endian_int.serialize(self.port)]
-
-    # @classmethod
-    # def from_wire_enc(self, data):
-    #     assert isinstance(data, (list, tuple)) and len(data) == 2
-    #     assert isinstance(data[0], str)
-    #     port = rlp.sedes.big_endian_int.deserialize(data[1])
-    #     return Address(data[0], port)
-
 
 class Node(kademlia.Node):
 
@@ -398,6 +387,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
         """
         log.debug('>>> pong', remoteid=node)
         payload = [node.address.to_endpoint(), token]
+        assert len(payload[0][0]) in (4, 16), payload
         message = self.pack(self.cmd_id_map['pong'], payload)
         self.send(node, message)
 
@@ -405,6 +395,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
         if not len(payload) == 2:
             log.error('invalid pong payload', payload=payload)
             return
+        assert len(payload[0]) == 3, payload
+        assert len(payload[0][0]) in (4, 16), payload
+
         my_address = Address.from_endpoint(*payload[0])
         echoed = payload[1]
         if nodeid in self.nodes:
