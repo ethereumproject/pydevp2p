@@ -39,7 +39,7 @@ install_requires = [install_requires_replacements.get(r, r) for r in install_req
 
 setup(
     name='devp2p',
-    version='0.4.1',
+    version='0.4.2',
     description='Python implementation of the Ethereum P2P stack',
     long_description=readme + '\n\n' + history,
     author='HeikoHeiko',
@@ -49,13 +49,13 @@ setup(
     package_dir={'devp2p': 'devp2p'},
     include_package_data=True,
     install_requires=install_requires,
-    license="BSD",
+    license="MIT",
     zip_safe=False,
     keywords='devp2p',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         "Programming Language :: Python :: 2",
         'Programming Language :: Python :: 2.7',
