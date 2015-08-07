@@ -6,6 +6,7 @@ https://github.com/ethereum/go-ethereum/wiki/RLPx-----Node-Discovery-Protocol
 import time
 import gevent
 import gevent.socket
+from socket import AF_INET, AF_INET6
 from devp2p import crypto
 import rlp
 from devp2p import utils
@@ -49,15 +50,28 @@ class Address(object):
         tcp_port = tcp_port or udp_port
         if from_binary:
             assert len(ip) in (4, 16), repr(ip)
-            self._ip = ipaddress.ip_address(ip)
             self.udp_port = dec_port(udp_port)
             self.tcp_port = dec_port(tcp_port)
         else:
             assert isinstance(udp_port, (int, long))
             assert isinstance(tcp_port, (int, long))
-            self._ip = ipaddress.ip_address(unicode(ip))
+            ip = unicode(ip)
             self.udp_port = udp_port
             self.tcp_port = tcp_port
+        try:
+            self._ip = ipaddress.ip_address(ip)
+        except ValueError:
+            # Possibly a hostname - try resolving it
+            # We only want v4 or v6 addresses
+            # see https://docs.python.org/2/library/socket.html#socket.getaddrinfo
+            ips = [
+                unicode(ai[4][0])
+                for ai in gevent.socket.getaddrinfo(ip, None)
+                if ai[0] == AF_INET
+                    or (ai[0] == AF_INET6 and ai[4][3] == 0)
+            ]
+            # Arbitrarily choose the first of the resolved addresses
+            self._ip = ipaddress.ip_address(ips[0])
 
     @property
     def ip(self):
