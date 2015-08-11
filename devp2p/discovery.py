@@ -516,9 +516,9 @@ class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
 
     go_bootstrap2 = 'enode://de471bccee3d042261d52e9bff31458daecc406142b401d4cd848f677479f73104b9fdeb090af9583d3391b7f10cb2ba9e26865dd5fca4fcdc0fb1e3b723c786@54.94.239.50:30303'
 
-    py_bootstrap = 'enode://f6ba1f1d9241d48138136ccf5baa6c2c8b008435a1c2bd009ca52fb8edbbc991eba36376beaee9d45f16d5dcbf2ed0bc23006c505d57ffcf70921bd94aa7a172@144.76.62.101:30303' # UPDATE ME
+    py_bootstrap = 'enode://2676755dd8477ad3beea32b4e5a144fa10444b70dfa3e05effb0fdfa75683ebd4f75709e1f8126cb5317c5a35cae823d503744e790a3a038ae5dd60f51ee9101@144.76.62.101:30303'
 
-    bootstrap_nodes = [cpp_bootstrap, go_bootstrap, go_bootstrap2]
+    bootstrap_nodes = [cpp_bootstrap, go_bootstrap, go_bootstrap2, py_bootstrap]
 
     name = 'discovery'
     server = None  # will be set to DatagramServer
