@@ -23,7 +23,8 @@ class PyTest(TestCommand):
     def run_tests(self):
         # import here, cause outside the eggs aren't loaded
         import pytest
-        pytest.main(self.test_args)
+        errno = pytest.main(self.test_args)
+        raise SystemExit(errno)
 
 
 readme = open('README.rst').read()
