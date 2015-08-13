@@ -31,36 +31,36 @@ def test_session():
     initiator.add_protocol(p0)
 
     # send auth
-    msg = initiator.get_message()
+    msg = initiator.message_queue.get_nowait()
     assert msg  # auth_init
     assert len(msg) == RLPxSession.auth_message_ct_length
-    assert not initiator.get_packet()
+    assert initiator.packet_queue.empty()
     assert not responder.is_initiator
 
     # receive auth
     responder.add_message(msg)
-    assert not responder.get_packet()
+    assert responder.packet_queue.empty()
     assert responder.is_ready
 
     # send auth ack and hello
-    ack_msg = responder.get_message()
+    ack_msg = responder.message_queue.get_nowait()
     assert len(msg) >= RLPxSession.auth_ack_message_ct_length  # + hello
-    hello_msg = responder.get_message()
+    hello_msg = responder.message_queue.get_nowait()
     assert hello_msg
 
     # receive auth ack & hello
     initiator.add_message(ack_msg + hello_msg)
     assert initiator.is_ready
-    hello_packet = initiator.get_packet()
+    hello_packet = initiator.packet_queue.get_nowait()
     assert isinstance(hello_packet, Packet)
 
     # initiator sends hello
-    hello_msg = initiator.get_message()
+    hello_msg = initiator.message_queue.get_nowait()
     assert hello_msg
 
     # hello received by responder
     responder.add_message(hello_msg)
-    hello_packet = responder.get_packet()
+    hello_packet = responder.packet_queue.get_nowait()
     assert isinstance(hello_packet, Packet)
 
     # assert we received an actual hello packet
@@ -70,21 +70,21 @@ def test_session():
     # test normal operation
     ping = proto.create_ping()
     initiator.add_packet(ping)
-    msg = initiator.get_message()
+    msg = initiator.message_queue.get_nowait()
 
     # receive ping
     responder.add_message(msg)
-    ping_packet = responder.get_packet()
+    ping_packet = responder.packet_queue.get_nowait()
     assert isinstance(ping_packet, Packet)
     data = proto.ping.decode_payload(ping_packet.payload)
 
     # reply with pong
     pong = proto.create_ping()
     responder.add_packet(pong)
-    msg = responder.get_message()
+    msg = responder.message_queue.get_nowait()
 
     # receive pong
     initiator.add_message(msg)
-    pong_packet = initiator.get_packet()
+    pong_packet = initiator.packet_queue.get_nowait()
     assert isinstance(pong_packet, Packet)
     data = proto.pong.decode_payload(pong_packet.payload)
