@@ -58,7 +58,11 @@ class NodeDiscoveryMock(object):
     def __init__(self, host, port, seed):
         self.address = discovery.Address(host, port)
 
-        config = dict(discovery=dict(), node=dict(privkey_hex=crypto.sha3(seed).encode('hex')))
+        config = dict(
+            discovery=dict(),
+            node=dict(privkey_hex=crypto.sha3(seed).encode('hex')),
+            p2p=dict(listen_port=port),
+        )
         config_discovery = config['discovery']
         config_discovery['listen_host'] = host
         config_discovery['listen_port'] = port
@@ -124,7 +128,11 @@ def test_ping_pong():
 # ############ test with real UDP ##################
 
 def get_app(port, seed):
-    config = dict(discovery=dict(), node=dict(privkey_hex=crypto.sha3(seed).encode('hex')))
+    config = dict(
+        discovery=dict(),
+        node=dict(privkey_hex=crypto.sha3(seed).encode('hex')),
+        p2p=dict(listen_port=port),
+    )
     config_discovery = config['discovery']
     config_discovery['listen_host'] = '127.0.0.1'
     config_discovery['listen_port'] = port
