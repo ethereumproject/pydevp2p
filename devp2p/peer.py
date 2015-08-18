@@ -200,6 +200,8 @@ class Peer(gevent.Greenlet):
             self._handle_packet(self.mux.packet_queue.get())  # get_packet blocks
 
     def _run_ingress_message(self):
+        log.debug('peer starting main loop')
+        assert not self.connection.closed, "connection is closed"
         gevent.spawn(self._run_decoded_packets)
         gevent.spawn(self._run_egress_message)
 

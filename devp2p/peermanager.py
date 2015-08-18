@@ -94,12 +94,13 @@ class PeerManager(WiredService):
         log.debug('new connect', connection=connection, incoming=bool(not remote_pubkey))
         # create peer
         peer = Peer(self, connection, remote_pubkey=remote_pubkey)
-        log.debug('created new peer', peer=peer)
+        log.debug('created new peer', peer=peer, fno=connection.fileno())
         self.peers.append(peer)
 
         # loop
         peer.start()
-        log.debug('peer started', peer=peer)
+        log.debug('peer started', peer=peer, fno=connection.fileno())
+        assert not connection.closed
 
     def connect(self, address, remote_pubkey):
         log.debug('connecting', address=address)
