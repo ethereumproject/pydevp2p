@@ -39,6 +39,8 @@ def get_connected_apps():
 def test_handshake():
     a_app, b_app = get_connected_apps()
     gevent.sleep(1)
+    assert a_app.services.peermanager.peers
+    assert b_app.services.peermanager.peers
     a_app.stop()
     b_app.stop()
 
