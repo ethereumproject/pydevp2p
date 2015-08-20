@@ -101,6 +101,7 @@ class PeerManager(WiredService):
         peer.start()
         log.debug('peer started', peer=peer, fno=connection.fileno())
         assert not connection.closed
+        return peer
 
     def connect(self, address, remote_pubkey):
         log.debug('connecting', address=address)
@@ -138,10 +139,17 @@ class PeerManager(WiredService):
         ip = self.config['p2p']['listen_host']
         port = self.config['p2p']['listen_port']
         log.info('starting listener', host=ip, port=port)
-        self.server = StreamServer((ip, port), handle=self._start_peer)
+        self.server = StreamServer((ip, port), handle=self.server_handle)
         self.server.start()
         self._bootstrap()
         super(PeerManager, self).start()
+
+    def server_handle(self, connection, address):
+        peer = self._start_peer(connection, address)
+        # Explicit join is required in gevent >= 1.1.
+        # See: https://github.com/gevent/gevent/issues/594
+        # and http://www.gevent.org/whatsnew_1_1.html#compatibility
+        peer.join()
 
     def num_peers(self):
         ps = [p for p in self.peers if p]
