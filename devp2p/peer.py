@@ -132,7 +132,10 @@ class Peer(gevent.Greenlet):
 
     def send_packet(self, packet):
         # rewrite cmd id / future FIXME  to packet.protocol_id
-        protocol = list(self.protocols.values())[packet.protocol_id]
+        for i, protocol in enumerate(self.protocols.values()):
+            if packet.protocol_id == protocol.protocol_id:
+                break
+        assert packet.protocol_id == protocol.protocol_id, 'no protocol found'
         log.debug('send packet', cmd=protocol.cmd_by_id[packet.cmd_id], protcol=protocol.name,
                   peer=self)
         # rewrite cmd_id  # FIXME
