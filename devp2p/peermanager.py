@@ -46,6 +46,8 @@ class PeerManager(WiredService):
                           node=dict(privkey_hex=''))
 
     connect_timeout = 2.
+    connect_loop_delay = 0.1
+    discovery_delay = 0.5
 
     def __init__(self, app):
         log.info('PeerManager init')
@@ -160,8 +162,7 @@ class PeerManager(WiredService):
 
     def _run(self):
         log.info('waiting for bootstrap')
-        gevent.sleep(3)
-        loop_delay = 1
+        gevent.sleep(self.discovery_delay)
         while not self.is_stopped:
             #log.info('in loop', num_peers=len(self.peers))
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
@@ -171,7 +172,7 @@ class PeerManager(WiredService):
                          min_peers=min_peers, known=len(kademlia_proto.routing))
                 nodeid = kademlia.random_nodeid()
                 kademlia_proto.find_node(nodeid)  # fixme, should be a task
-                gevent.sleep(2)  # wait for results
+                gevent.sleep(self.discovery_delay)  # wait for results
                 neighbours = kademlia_proto.routing.neighbours(nodeid, 1)
                 node = neighbours[0]
                 log.info('connecting random', node=node)
@@ -181,7 +182,7 @@ class PeerManager(WiredService):
                 if node.pubkey in [p.remote_pubkey for p in self.peers]:
                     continue
                 self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
-            gevent.sleep(loop_delay)
+            gevent.sleep(self.connect_loop_delay)
 
         evt = gevent.event.Event()
         evt.wait()
