@@ -89,7 +89,7 @@ class Frame(object):
     def __init__(self, protocol_id, cmd_id, payload, sequence_id, window_size,
                  is_chunked_n=False, frames=None, frame_cipher=None):
         payload = memoryview(payload)
-        assert isinstance(window_size, int)
+        assert isinstance(window_size, (int, long))
         assert window_size % self.padding == 0
         assert isinstance(cmd_id, int) and cmd_id < 256
         self.cmd_id = cmd_id

@@ -164,7 +164,6 @@ class PeerManager(WiredService):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
         while not self.is_stopped:
-            #log.info('in loop', num_peers=len(self.peers))
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
             kademlia_proto = self.app.services.discovery.protocol.kademlia
             if num_peers < min_peers:

@@ -109,7 +109,7 @@ class Peer(gevent.Greenlet):
         if not agree:
             return
 
-        log.info('connecting services', services=self.peermanager.wired_services)
+        log.debug('connecting services', services=self.peermanager.wired_services)
         remote_services = dict((name, version) for name, version in capabilities)
         for service in sorted(self.peermanager.wired_services, key=operator.attrgetter('name')):
             proto = service.wire_protocol
@@ -119,7 +119,7 @@ class Peer(gevent.Greenlet):
                     if service != self.peermanager:  # p2p protcol already registered
                         self.connect_service(service)
                 else:
-                    log.info('wrong version', service=proto.name, local_version=proto.version,
+                    log.debug('wrong version', service=proto.name, local_version=proto.version,
                              remote_version=remote_services[proto.name])
                     self.report_error('wrong version')
 
@@ -184,11 +184,11 @@ class Peer(gevent.Greenlet):
             self.connection.sendall(data)  # check if gevent chunkes and switches contexts
             log.debug('wrote data', size=len(data), ts=time.time())
         except gevent.socket.error as e:
-            log.info('write error', errno=e.errno, reason=e.strerror)
+            log.debug('write error', errno=e.errno, reason=e.strerror)
             self.report_error('write error %r' % e.strerror)
             self.stop()
         except gevent.socket.timeout:
-            log.info('write timeout')
+            log.debug('write timeout')
             self.report_error('write timeout')
             self.stop()
         self.safe_to_read.set()
