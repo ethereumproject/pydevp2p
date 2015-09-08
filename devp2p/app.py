@@ -9,7 +9,7 @@ log = get_logger('app')
 
 class BaseApp(object):
 
-    default_config = dict(client_version='pydevp2p {}'.format(__version__),
+    default_config = dict(client_version_string='pydevp2p {}'.format(__version__),
                           deactivated_services=[])
 
     def __init__(self, config=default_config):

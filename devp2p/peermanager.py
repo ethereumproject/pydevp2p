@@ -60,7 +60,8 @@ class PeerManager(WiredService):
             self.config['node']['id'] = crypto.privtopub(
                 self.config['node']['privkey_hex'].decode('hex'))
 
-    def on_hello_received(self, proto, version, client_version, capabilities, listen_port, nodeid):
+    def on_hello_received(self, proto, version, client_version_string, capabilities,
+                          listen_port, nodeid):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
         if len(self.peers) > max(self.config['p2p']['max_peers'], self.config['p2p']['max_peers']):
             log.debug('too many peers', max=self.config['p2p']['max_peers'])
@@ -173,6 +174,9 @@ class PeerManager(WiredService):
                 kademlia_proto.find_node(nodeid)  # fixme, should be a task
                 gevent.sleep(self.discovery_delay)  # wait for results
                 neighbours = kademlia_proto.routing.neighbours(nodeid, 1)
+                if not neighbours:
+                    gevent.sleep(self.connect_loop_delay)
+                    continue
                 node = neighbours[0]
                 log.info('connecting random', node=node)
                 local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))

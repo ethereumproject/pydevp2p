@@ -14,7 +14,9 @@ import rlpxcipher
 
 log = slogging.get_logger('p2p.peer')
 
+
 class UnknownCommandError(Exception):
+
     "raised if we recive an unknown command for a known protocol"
     pass
 
@@ -97,15 +99,16 @@ class Peer(gevent.Greenlet):
         assert issubclass(protocol, BaseProtocol)
         return protocol in self.protocols
 
-    def receive_hello(self, proto, version, client_version, capabilities, listen_port, nodeid):
+    def receive_hello(self, proto, version, client_version_string, capabilities,
+                      listen_port, nodeid):
         # register in common protocols
         log.info('received hello', version=version,
-                 client_version=client_version, capabilities=capabilities)
-        self.remote_client_version = client_version
+                 client_version=client_version_string, capabilities=capabilities)
+        self.remote_client_version = client_version_string
 
         # call peermanager
         agree = self.peermanager.on_hello_received(
-            proto, version, client_version, capabilities, listen_port, nodeid)
+            proto, version, client_version_string, capabilities, listen_port, nodeid)
         if not agree:
             return
 
@@ -120,7 +123,7 @@ class Peer(gevent.Greenlet):
                         self.connect_service(service)
                 else:
                     log.debug('wrong version', service=proto.name, local_version=proto.version,
-                             remote_version=remote_services[proto.name])
+                              remote_version=remote_services[proto.name])
                     self.report_error('wrong version')
 
     @property

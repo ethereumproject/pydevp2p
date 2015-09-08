@@ -95,7 +95,7 @@ class P2PProtocol(BaseProtocol):
 
         structure = [
             ('version', sedes.big_endian_int),
-            ('client_version', sedes.binary),
+            ('client_version_string', sedes.binary),
             ('capabilities', sedes.CountableList(sedes.List([sedes.binary, sedes.big_endian_int]))),
             ('listen_port', sedes.big_endian_int),
             ('nodeid', sedes.binary)
@@ -103,7 +103,7 @@ class P2PProtocol(BaseProtocol):
 
         def create(self, proto):
             return dict(version=proto.version,
-                        client_version=proto.config['client_version'],
+                        client_version_string=proto.config['client_version_string'],
                         capabilities=proto.peer.capabilities,
                         listen_port=proto.config['p2p']['listen_port'],
                         nodeid=proto.config['node']['id'],
@@ -128,7 +128,7 @@ class P2PProtocol(BaseProtocol):
     def get_hello_packet(cls, peer):
         "special: we need this packet before the protcol can be initalized"
         res = dict(version=cls.version,
-                   client_version=peer.config['client_version'],
+                   client_version_string=peer.config['client_version_string'],
                    capabilities=peer.capabilities,
                    listen_port=peer.config['p2p']['listen_port'],
                    nodeid=peer.config['node']['id'])

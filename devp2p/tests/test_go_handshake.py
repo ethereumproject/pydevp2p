@@ -167,7 +167,7 @@ def test_handshake():
 
     structure = [
         ('version', sedes.big_endian_int),
-        ('client_version', sedes.big_endian_int),
+        ('client_version_string', sedes.big_endian_int),
         ('capabilities', sedes.CountableList(_sedes_capabilites_tuple)),
         ('listen_port', sedes.big_endian_int),
         ('nodeid', sedes.binary)

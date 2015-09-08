@@ -10,6 +10,7 @@ log = slogging.get_logger('protocol')
 class ProtocolError(Exception):
     pass
 
+
 class SubProtocolError(ProtocolError):
     pass
 
@@ -88,7 +89,7 @@ class BaseProtocol(gevent.Greenlet):
 
         @classmethod
         def decode_payload(cls, rlp_data):
-            log.debug('decoding rlp', size=len(rlp_data))
+            log.trace('decoding rlp', size=len(rlp_data))
             if isinstance(cls.structure, sedes.CountableList):
                 decoder = cls.structure
             else:

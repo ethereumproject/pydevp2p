@@ -245,6 +245,9 @@ class Packet(object):
         o.pop('prioritize')
         return s == o
 
+    def __len__(self):
+        return len(self.payload)
+
 
 class Multiplexer(object):
 

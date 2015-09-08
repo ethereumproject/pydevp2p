@@ -10,12 +10,13 @@ import pytest
 class PeerMock(object):
     packets = []
     config = dict(p2p=dict(listen_port=3000),
-                  node=dict(id='\x00' * 64), client_version='devp2p 0.1.1')
+                  node=dict(id='\x00' * 64), client_version_string='devp2p 0.1.1')
     capabilities = [('p2p', 2), ('eth', 57)]
     stopped = False
     hello_received = False
 
-    def receive_hello(self, proto, version, client_version, capabilities, listen_port, nodeid):
+    def receive_hello(self, proto, version, client_version_string, capabilities,
+                      listen_port, nodeid):
         for name, version in capabilities:
             assert isinstance(name, str)
             assert isinstance(version, int)
