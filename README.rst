@@ -2,6 +2,10 @@
 pydevp2p
 ===============================
 
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+   :alt: Join the chat at https://gitter.im/ethereum/pydevp2p
+   :target: https://gitter.im/ethereum/pydevp2p?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+
 .. image:: https://badge.fury.io/py/devp2p.png
     :target: http://badge.fury.io/py/devp2p
 
