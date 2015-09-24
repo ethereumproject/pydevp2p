@@ -170,7 +170,7 @@ class Frame(object):
         elif self.sequence_id:  # normal, chunked_n
             l.append(self.sequence_id)
         header_data = rlp.encode(l, sedes=header_data_sedes)
-        assert l == rlp.decode(header_data, sedes=header_data_sedes, strict=False)
+        assert tuple(l) == rlp.decode(header_data, sedes=header_data_sedes, strict=False)
         # write body_size to header
         # frame-size: 3-byte integer size of frame, big endian encoded (excludes padding)
         # frame relates to body w/o padding w/o mac
