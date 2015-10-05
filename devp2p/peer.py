@@ -24,6 +24,7 @@ class UnknownCommandError(Exception):
 class Peer(gevent.Greenlet):
 
     remote_client_version = ''
+    offset_based_dispatch = False
     wait_read_timeout = 0.001
 
     def __init__(self, peermanager, connection, remote_pubkey=None):  # FIXME node vs remote_pubkey
@@ -101,10 +102,14 @@ class Peer(gevent.Greenlet):
 
     def receive_hello(self, proto, version, client_version_string, capabilities,
                       listen_port, nodeid):
-        # register in common protocols
         log.info('received hello', version=version,
                  client_version=client_version_string, capabilities=capabilities)
         self.remote_client_version = client_version_string
+
+        # enable backwards compatibility for legacy peers
+        if version < 5:
+            self.offset_based_dispatch = True
+            max_window_size = 2**32 # disable chunked transfers
 
         # call peermanager
         agree = self.peermanager.on_hello_received(
@@ -112,6 +117,7 @@ class Peer(gevent.Greenlet):
         if not agree:
             return
 
+        # register in common protocols
         log.debug('connecting services', services=self.peermanager.wired_services)
         remote_services = dict((name, version) for name, version in capabilities)
         for service in sorted(self.peermanager.wired_services, key=operator.attrgetter('name')):
@@ -134,38 +140,38 @@ class Peer(gevent.Greenlet):
     # sending p2p messages
 
     def send_packet(self, packet):
-        # rewrite cmd id / future FIXME  to packet.protocol_id
         for i, protocol in enumerate(self.protocols.values()):
             if packet.protocol_id == protocol.protocol_id:
                 break
         assert packet.protocol_id == protocol.protocol_id, 'no protocol found'
         log.debug('send packet', cmd=protocol.cmd_by_id[packet.cmd_id], protcol=protocol.name,
                   peer=self)
-        # rewrite cmd_id  # FIXME
-        for i, protocol in enumerate(self.protocols.values()):
-            if packet.protocol_id > i:
-                packet.cmd_id += (0 if protocol.max_cmd_id == 0 else protocol.max_cmd_id + 1)
-            if packet.protocol_id == protocol.protocol_id:
-                break
-
-        packet.protocol_id = 0
-        # done rewrite
+        # rewrite cmd_id (backwards compatibility)
+        if self.offset_based_dispatch:
+            for i, protocol in enumerate(self.protocols.values()):
+                if packet.protocol_id > i:
+                    packet.cmd_id += (0 if protocol.max_cmd_id == 0 else protocol.max_cmd_id + 1)
+                if packet.protocol_id == protocol.protocol_id:
+                    break
+                packet.protocol_id = 0
         self.mux.add_packet(packet)
 
     # receiving p2p messages
 
     def protocol_cmd_id_from_packet(self, packet):
-        # packet.protocol_id not yet used. old adaptive cmd_ids instead
-        # future FIXME  to packet.protocol_id
-
-        # get protocol and protocol.cmd_id from packet.cmd_id
-        max_id = 0
-        assert packet.protocol_id == 0  # FIXME, should be used by other peers
-        for protocol in self.protocols.values():
-            if packet.cmd_id < max_id + protocol.max_cmd_id + 1:
-                return protocol, packet.cmd_id - (0 if max_id == 0 else max_id + 1)
-            max_id += protocol.max_cmd_id
-        raise UnknownCommandError('no protocol for id %s' % packet.cmd_id)
+        # offset-based dispatch (backwards compatibility)
+        if self.offset_based_dispatch:
+            max_id = 0
+            for protocol in self.protocols.values():
+                if packet.cmd_id < max_id + protocol.max_cmd_id + 1:
+                    return protocol, packet.cmd_id - (0 if max_id == 0 else max_id + 1)
+                max_id += protocol.max_cmd_id
+            raise UnknownCommandError('no protocol for id %s' % packet.cmd_id)
+        # new-style dispatch based on protocol_id
+        for i, protocol in enumerate(self.protocols.values()):
+            if packet.protocol_id == protocol.protocol_id:
+                return protocol, packet.cmd_id
+        raise UnknownCommandError('no protocol for protocol id %s' % packet.protocol_id)
 
     def _handle_packet(self, packet):
         assert isinstance(packet, multiplexer.Packet)
@@ -247,10 +253,6 @@ class Peer(gevent.Greenlet):
                     log.debug('multiplexer error', peer=self, error=e)
                     self.report_error('multiplexer error')
                     self.stop()
-            else:
-                log.debug('no data on socket', peer=self)
-                self.report_error('no data on socket')
-                self.stop()
 
     _run = _run_ingress_message
 

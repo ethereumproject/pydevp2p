@@ -5,9 +5,6 @@ from crypto import ECCx
 
 
 class MultiplexedSession(multiplexer.Multiplexer):
-
-    max_window_size = 2**32  # FIXME, hack to disable framing till POC9
-
     def __init__(self, privkey, hello_packet, token_by_pubkey=dict(), remote_pubkey=None):
         self.is_initiator = bool(remote_pubkey)
         self.hello_packet = hello_packet
