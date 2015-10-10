@@ -1,6 +1,6 @@
 pyelliptic
 wheel
-gevent==1.1b3
+gevent>=1.1b3
 tinyrpc
 pysha3
 bitcoin
@@ -12,3 +12,4 @@ coverage
 tox
 pycrypto
 https://github.com/ethereum/pyrlp/tarball/develop
+c_secp256k1

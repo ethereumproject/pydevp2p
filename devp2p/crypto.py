@@ -27,18 +27,7 @@ import bitcoin
 from sha3 import sha3_256
 from hashlib import sha256
 import struct
-import random
-import devp2p.utils as utils
-try:
-    from ecdsa_recover import ecdsa_raw_sign, ecdsa_raw_verify, ecdsa_raw_recover
-    from ecdsa_recover import ecdsa_sign, ecdsa_verify
-except:
-    ecdsa_raw_sign = bitcoin.ecdsa_raw_sign
-    ecdsa_raw_verify = bitcoin.ecdsa_raw_verify
-    ecdsa_raw_recover = bitcoin.ecdsa_raw_recover
-    ecdsa_sign = bitcoin.ecdsa_sign
-    ecdsa_verify = bitcoin.ecdsa_verify
-
+from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
 hmac_sha256 = pyelliptic.hmac_sha256
 
 
@@ -214,10 +203,6 @@ class ECCx(pyelliptic.ECC):
     decrypt = ecies_decrypt
 
     def sign(self, data):
-        """
-        pyelliptic.ECC.sign is DER-encoded
-        https://bitcoin.stackexchange.com/questions/12554
-        """
         signature = ecdsa_sign(data, self.raw_privkey)
         assert len(signature) == 65
         return signature
@@ -249,8 +234,9 @@ def ecdsa_verify(pubkey, signature, message):
 verify = ecdsa_verify
 
 
-def ecdsa_sign(message, privkey):
-    s = _encode_sig(*ecdsa_raw_sign(message, privkey))
+def ecdsa_sign(msghash, privkey):
+    assert len(msghash) == 32
+    s = _encode_sig(*ecdsa_raw_sign(msghash, privkey))
     return s
 
 sign = ecdsa_sign

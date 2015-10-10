@@ -31,7 +31,7 @@ def test_signature():
     bob = get_ecc('secret2')
 
     # sign
-    message = "Hello Alice"
+    message = crypto.sha3("Hello Alice")
     signature = bob.sign(message)
 
     # verify signature
@@ -39,14 +39,14 @@ def test_signature():
     assert crypto.ECCx(raw_pubkey=bob.raw_pubkey).verify(signature, message) is True
 
     # wrong signature
-    message = "Hello Alicf"
+    message = crypto.sha3("Hello Alicf")
     assert crypto.ECCx(raw_pubkey=bob.raw_pubkey).verify(signature, message) is False
     assert crypto.verify(bob.raw_pubkey, signature, message) is False
 
 
 def test_recover():
     alice = get_ecc('secret1')
-    message = 'hello bob'
+    message = crypto.sha3('hello bob')
     signature = alice.sign(message)
     assert len(signature) == 65
     assert crypto.verify(alice.raw_pubkey, signature, message) is True
@@ -86,6 +86,7 @@ def test_privtopub():
 def recover_1kb(times=1000):
     alice = get_ecc('secret1')
     message = ''.join(chr(random.randrange(0, 256)) for i in range(1024))
+    message = crypto.sha3(message)
     signature = alice.sign(message)
     for i in range(times):
         recovered_pubkey = crypto.ecdsa_recover(message, signature)
