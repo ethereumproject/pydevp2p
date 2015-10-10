@@ -27,7 +27,13 @@ import bitcoin
 from sha3 import sha3_256
 from hashlib import sha256
 import struct
-from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
+try:
+    from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
+except ImportError:
+    print 'WARNING: could not import c_secp256k1, fallback to bitcointools'
+    from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
+
+
 hmac_sha256 = pyelliptic.hmac_sha256
 
 
