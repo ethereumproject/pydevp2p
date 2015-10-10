@@ -1,6 +1,6 @@
 pyelliptic
 wheel
-gevent>=1.1b3
+gevent==1.1b3
 tinyrpc
 pysha3
 bitcoin
