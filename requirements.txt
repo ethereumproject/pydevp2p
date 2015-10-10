@@ -10,6 +10,6 @@ pytest-capturelog
 pytest-timeout
 coverage
 tox
-pycrypto
+pycryptodome
 https://github.com/ethereum/pyrlp/tarball/develop
 c_secp256k1

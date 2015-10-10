@@ -341,6 +341,6 @@ class RLPxSession(object):
         assert len(iv) == 16
         self.aes_enc = pyelliptic.Cipher(self.aes_secret, iv, 1, ciphername=ciphername)
         self.aes_dec = pyelliptic.Cipher(self.aes_secret, iv, 0, ciphername=ciphername)
-        self.mac_enc = AES.AESCipher(self.mac_secret, AES.MODE_ECB).encrypt
+        self.mac_enc = AES.new(self.mac_secret, AES.MODE_ECB).encrypt
 
         self.is_ready = True
