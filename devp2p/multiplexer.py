@@ -109,13 +109,13 @@ class Frame(object):
         if fs > window_size:
             if not is_chunked_n:
                 self.is_chunked_0 = True
-                self.total_payload_size = len(payload)
+                self.total_payload_size = self.body_size()
             # chunk payload
             self.payload = payload[:window_size - fs]
             assert self.frame_size() <= window_size
             remain = payload[len(self.payload):]
             assert len(remain) + len(self.payload) == len(payload)
-            Frame(protocol_id, cmd_id, remain, sequence_id + 1, window_size,
+            Frame(protocol_id, cmd_id, remain, sequence_id, window_size,
                   is_chunked_n=True,
                   frames=self.frames,
                   frame_cipher=frame_cipher)
@@ -167,7 +167,7 @@ class Frame(object):
             assert self.sequence_id is not None
             l.append(self.sequence_id)
             l.append(self.total_payload_size)
-        elif self.sequence_id:  # normal, chunked_n
+        elif self.sequence_id is not None:  # normal, chunked_n
             l.append(self.sequence_id)
         header_data = rlp.encode(l, sedes=header_data_sedes)
         assert tuple(l) == rlp.decode(header_data, sedes=header_data_sedes, strict=False)
@@ -287,9 +287,9 @@ class Multiplexer(object):
             # assert isinstance(frame_cipher, FrameCipherBase)
             self.frame_cipher = frame_cipher
         self.queues = OrderedDict()  # protocol_id : dict(normal=queue, chunked=queue, prio=queue)
-        self.sequence_id = 0
+        self.sequence_id = dict() # protocol_id : counter
         self.last_protocol = None  # last protocol, which sent data to the buffer
-        self.chunked_buffers = dict()  # decode: next_expected_sequence_id > buffer
+        self.chunked_buffers = dict()  # decode: protocol_id: dict(sequence_id: buffer)
         self._decode_buffer = bytearray()
 
     @property
@@ -316,6 +316,8 @@ class Multiplexer(object):
         self.queues[protocol_id] = dict(normal=Queue(),
                                         chunked=Queue(),
                                         priority=Queue())
+        self.sequence_id[protocol_id] = 0
+        self.chunked_buffers[protocol_id] = dict()
         self.last_protocol = protocol_id
 
     @property
@@ -330,12 +332,13 @@ class Multiplexer(object):
 
     def add_packet(self, packet):
         #protocol_id, cmd_id, rlp_data, prioritize=False
+        sid = self.sequence_id[packet.protocol_id]
+        self.sequence_id[packet.protocol_id] = (sid + 1) % 2**16
         frames = Frame(packet.protocol_id, packet.cmd_id, packet.payload,
-                       sequence_id=self.sequence_id,
+                       sequence_id=sid,
                        window_size=self.protocol_window_size(packet.protocol_id),
                        frame_cipher=self.frame_cipher
                        ).frames
-        self.sequence_id = frames[-1].sequence_id + 1
         queues = self.queues[packet.protocol_id]
         if packet.prioritize:
             assert len(frames) == 1
@@ -466,7 +469,6 @@ class Multiplexer(object):
 
         if len(header_data) == 3:
             chunked_0 = True
-            # total-packet-size: < 2**32
             total_payload_size = header_data[2]
             assert total_payload_size < 2**32
         else:
@@ -484,40 +486,45 @@ class Multiplexer(object):
             sequence_id = None
 
         # build packet
-        if sequence_id in self.chunked_buffers:
+        if protocol_id not in self.chunked_buffers:
+            raise MultiplexerError('unknown protocol_id %d' % (protocol_id))
+        chunkbuf = self.chunked_buffers[protocol_id]
+        if sequence_id in chunkbuf:
             # body chunked-n: packet-data || padding
-            packet = self.chunked_buffers.pop(sequence_id)
+            packet = chunkbuf[sequence_id]
+            if chunked_0:
+                raise MultiplexerError('received chunked_0 frame for existing buffer %d of protocol %d' %
+                                       (sequence_id, protocol_id))
+            if len(body) > packet.total_payload_size - len(packet.payload):
+                raise MultiplexerError('too much data for chunked buffer %d of protocol %d' %
+                                       (sequence_id, protocol_id))
+            # all good
             packet.payload += body
             if packet.total_payload_size == len(packet.payload):
                 del packet.total_payload_size
+                del chunkbuf[sequence_id]
                 return packet
-            self.chunked_buffers[sequence_id + 1] = packet
         else:
             # body normal, chunked-0: rlp(packet-type) [|| rlp(packet-data)] || padding
             item, end = rlp.codec.consume_item(body, 0)
             cmd_id = rlp.sedes.big_endian_int.deserialize(item)
             if chunked_0:
                 payload = bytearray(body[end:])
+                total_payload_size -= end
             else:
                 payload = body[end:]
 
-            packet = Packet(protocol_id=protocol_id,
-                            cmd_id=cmd_id,
-                            payload=payload)
+            packet = Packet(protocol_id=protocol_id, cmd_id=cmd_id, payload=payload)
             if chunked_0:
-                """
-                chunked packets of a sub protocol are sent in order
-                thus if a new frame_0 of a subprotocol is received others must be removed
-                should probably drop connection
-                """
-                for sid, packet in self.chunked_buffers.items():
-                    if packet.protocol_id == protocol_id:
-                        del self.chunked_buffers[sid]
+                if total_payload_size < len(payload):
+                    raise MultiplexerError('total payload size smaller than initial chunk')
+                if total_payload_size == len(payload):
+                    return packet # shouldn't have been chunked, whatever
                 assert sequence_id is not None
                 packet.total_payload_size = total_payload_size
-                self.chunked_buffers[sequence_id + 1] = packet
-            else:  # normal
-                return packet
+                chunkbuf[sequence_id] = packet
+            else:
+                return packet # normal (non-chunked)
 
     def decode(self, data=''):
         if data:
