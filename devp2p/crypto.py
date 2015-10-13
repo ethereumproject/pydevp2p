@@ -1,6 +1,6 @@
 #!/usr/bin/python
 CIPHERNAMES = set(('aes-128-ctr',))
-
+import warnings
 import os
 import sys
 if sys.platform not in ('darwin',):
@@ -30,7 +30,7 @@ import struct
 try:
     from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
 except ImportError:
-    print 'WARNING: could not import c_secp256k1, fallback to bitcointools'
+    warnings.warn('could not import c_secp256k1, fallback to bitcointools')
     from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
 
 
