@@ -117,11 +117,11 @@ class PeerManager(WiredService):
         try:
             connection = create_connection(address, timeout=self.connect_timeout)
         except socket.timeout:
-            log.info('connection timeout', address=address, timeout=self.connect_timeout)
+            log.debug('connection timeout', address=address, timeout=self.connect_timeout)
             self.errors.add(address, 'connection timeout')
             return False
         except socket.error as e:
-            log.info('connection error', errno=e.errno, reason=e.strerror)
+            log.debug('connection error', errno=e.errno, reason=e.strerror)
             self.errors.add(address, 'connection error')
             return False
         self._start_peer(connection, address, remote_pubkey)
@@ -168,8 +168,8 @@ class PeerManager(WiredService):
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
             kademlia_proto = self.app.services.discovery.protocol.kademlia
             if num_peers < min_peers:
-                log.info('missing peers', num_peers=num_peers,
-                         min_peers=min_peers, known=len(kademlia_proto.routing))
+                log.debug('missing peers', num_peers=num_peers,
+                          min_peers=min_peers, known=len(kademlia_proto.routing))
                 nodeid = kademlia.random_nodeid()
                 kademlia_proto.find_node(nodeid)  # fixme, should be a task
                 gevent.sleep(self.discovery_delay)  # wait for results
@@ -178,7 +178,7 @@ class PeerManager(WiredService):
                     gevent.sleep(self.connect_loop_delay)
                     continue
                 node = neighbours[0]
-                log.info('connecting random', node=node)
+                log.debug('connecting random', node=node)
                 local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
                 if node.pubkey == local_pubkey:
                     continue

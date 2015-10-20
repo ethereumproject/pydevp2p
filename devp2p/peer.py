@@ -109,7 +109,7 @@ class Peer(gevent.Greenlet):
         # enable backwards compatibility for legacy peers
         if version < 5:
             self.offset_based_dispatch = True
-            max_window_size = 2**32 # disable chunked transfers
+            max_window_size = 2**32  # disable chunked transfers
 
         # call peermanager
         agree = self.peermanager.on_hello_received(
