@@ -5,7 +5,7 @@ from devp2p.protocol import BaseProtocol, SubProtocolError
 from devp2p.service import WiredService, BaseService
 from devp2p.discovery import NodeDiscovery
 from devp2p.crypto import privtopub as privtopub_raw, sha3
-from devp2p.utils import host_port_pubkey_to_uri, update_config_with_defaults
+from devp2p.utils import host_port_pubkey_to_uri, update_config_with_defaults, colors, COLOR_END
 import rlp
 import gevent
 from gevent.event import Event
@@ -108,19 +108,29 @@ class ExampleService(WiredService):
     def start(self):
         super(ExampleService, self).start()
 
+    def log(self, text, **kargs):
+        node_num = self.config['node_num']
+        msg = ' '.join([
+                    colors[node_num % len(colors)],
+                    "node[%d]" % node_num,
+                    text,
+                    (' %r' % kargs if kargs else ''),
+                    COLOR_END])
+        log.debug(msg)
+
     def on_wire_protocol_stop(self, proto):
         assert isinstance(proto, self.wire_protocol)
-        log.debug('----------------------------------')
-        log.debug('on_wire_protocol_stop', proto=proto)
+        self.log('----------------------------------')
+        self.log('on_wire_protocol_stop', proto=proto)
 
     def broadcast(self, obj, origin=None):
         """
         """
         fmap = {Token: 'token'}
-        if self.broadcast_filter.update(obj.hash) == False:
-            log.debug('already broadcasted', obj=obj)
+        if not self.broadcast_filter.update(obj.hash):
+            self.log('already broadcasted', obj=obj)
             return
-        log.debug('broadcasting', obj=obj)
+        self.log('broadcasting', obj=obj)
         bcast = self.app.services.peermanager.broadcast
         bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
               exclude_peers=[origin.peer] if origin else [])
@@ -128,8 +138,8 @@ class ExampleService(WiredService):
     # application logic
 
     def on_wire_protocol_start(self, proto):
-        log.debug('----------------------------------')
-        log.debug('on_wire_protocol_start', proto=proto)
+        self.log('----------------------------------')
+        self.log('on_wire_protocol_start', proto=proto)
         assert isinstance(proto, self.wire_protocol)
         # register callbacks
         proto.receive_token_callbacks.append(self.on_receive_token)
@@ -141,13 +151,13 @@ class ExampleService(WiredService):
     def on_receive_token(self, proto, token):
         assert isinstance(token, Token)
         assert isinstance(proto, self.wire_protocol)
-        log.debug('----------------------------------')
-        log.debug('on_receive token', token=token, proto=proto)
+        self.log('----------------------------------')
+        self.log('on_receive token', token=token, proto=proto)
         if token.hash in self.broadcast_filter:
-            log.debug('known token')
+            self.log('known token')
             return
         if token.counter != self.counter + 1:
-            log.debug('invalid token, not in sync')
+            self.log('invalid token, not in sync')
             return
         self.counter = token.counter
         self.send_token()
@@ -157,7 +167,7 @@ class ExampleService(WiredService):
         if turn != self.config['node_num']:
             return
         token = Token(counter=self.counter + 1, sender=self.address)
-        log.debug('sending token', token=token)
+        self.log('sending token', token=token)
         self.broadcast(token)
 
 services = [NodeDiscovery, peermanager.PeerManager, ExampleService]
