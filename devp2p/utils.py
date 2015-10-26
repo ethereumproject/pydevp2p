@@ -56,3 +56,27 @@ def update_config_with_defaults(config, default_config):
         elif k not in config:
             config[k] = default_config[k]
     return config
+
+
+# ###### colors ###############
+
+COLOR_FAIL = '\033[91m'
+COLOR_BOLD = '\033[1m'
+COLOR_UNDERLINE = '\033[4m'
+COLOR_END = '\033[0m'
+
+colors = ['\033[9%dm' % i for i in range(0, 7)]
+colors += ['\033[4%dm' % i for i in range(1, 8)]
+
+def cstr(num, txt):
+    return '%s%s%s' % (colors[num % len(colors)], txt, COLOR_END)
+
+def cprint(num, txt):
+    print cstr(num, txt)
+
+def phx(x):
+    return x.encode('hex')[:8]
+
+if __name__ == '__main__':
+    for i in range(len(colors)):
+        cprint(i, 'test')
