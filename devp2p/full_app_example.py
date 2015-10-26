@@ -12,10 +12,12 @@ from gevent.event import Event
 import signal
 import copy
 import sys
+from devp2p.p2p_protocol import ConnectionMonitor
 import ethereum.slogging as slogging
-
-slogging.configure(config_string=':debug')
+slogging.configure(config_string=':debug,p2p.discovery:info')
 log = slogging.get_logger('app')
+
+ConnectionMonitor.ping_interval = 2**256  # deactive pings
 
 
 class Token(rlp.Serializable):
@@ -111,11 +113,11 @@ class ExampleService(WiredService):
     def log(self, text, **kargs):
         node_num = self.config['node_num']
         msg = ' '.join([
-                    colors[node_num % len(colors)],
-                    "node[%d]" % node_num,
-                    text,
-                    (' %r' % kargs if kargs else ''),
-                    COLOR_END])
+            colors[node_num % len(colors)],
+            "node[%d]" % node_num,
+            text,
+            (' %r' % kargs if kargs else ''),
+            COLOR_END])
         log.debug(msg)
 
     def on_wire_protocol_stop(self, proto):
