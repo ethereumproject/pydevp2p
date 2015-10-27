@@ -16,7 +16,7 @@ class PeerMock(object):
     hello_received = False
 
     def receive_hello(self, proto, version, client_version_string, capabilities,
-                      listen_port, nodeid):
+                      listen_port, remote_pubkey):
         for name, version in capabilities:
             assert isinstance(name, str)
             assert isinstance(version, int)

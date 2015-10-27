@@ -114,7 +114,7 @@ class ExampleService(WiredService):
         node_num = self.config['node_num']
         msg = ' '.join([
             colors[node_num % len(colors)],
-            "node[%d]" % node_num,
+            "NODE%d" % node_num,
             text,
             (' %r' % kargs if kargs else ''),
             COLOR_END])
@@ -141,7 +141,7 @@ class ExampleService(WiredService):
 
     def on_wire_protocol_start(self, proto):
         self.log('----------------------------------')
-        self.log('on_wire_protocol_start', proto=proto)
+        self.log('on_wire_protocol_start', proto=proto, peers=self.app.services.peermanager.peers)
         assert isinstance(proto, self.wire_protocol)
         # register callbacks
         proto.receive_token_callbacks.append(self.on_receive_token)

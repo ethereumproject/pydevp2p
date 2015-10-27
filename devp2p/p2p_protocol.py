@@ -98,7 +98,7 @@ class P2PProtocol(BaseProtocol):
             ('client_version_string', sedes.binary),
             ('capabilities', sedes.CountableList(sedes.List([sedes.binary, sedes.big_endian_int]))),
             ('listen_port', sedes.big_endian_int),
-            ('nodeid', sedes.binary)
+            ('remote_pubkey', sedes.binary)
         ]
 
         def create(self, proto):
@@ -106,13 +106,13 @@ class P2PProtocol(BaseProtocol):
                         client_version_string=proto.config['client_version_string'],
                         capabilities=proto.peer.capabilities,
                         listen_port=proto.config['p2p']['listen_port'],
-                        nodeid=proto.config['node']['id'],
+                        remote_pubkey=proto.config['node']['id'],
                         )
 
         def receive(self, proto, data):
             log.debug('receive_hello', peer=proto.peer, version=data['version'])
             reasons = proto.disconnect.reason
-            if data['nodeid'] == proto.config['node']['id']:
+            if data['remote_pubkey'] == proto.config['node']['id']:
                 log.debug('connected myself')
                 return proto.send_disconnect(reason=reasons.connected_to_self)
             if data['version'] != proto.version:
@@ -131,7 +131,7 @@ class P2PProtocol(BaseProtocol):
                    client_version_string=peer.config['client_version_string'],
                    capabilities=peer.capabilities,
                    listen_port=peer.config['p2p']['listen_port'],
-                   nodeid=peer.config['node']['id'])
+                   remote_pubkey=peer.config['node']['id'])
         payload = cls.hello.encode_payload(res)
         return Packet(cls.protocol_id, cls.hello.cmd_id, payload=payload)
 
@@ -164,7 +164,7 @@ class P2PProtocol(BaseProtocol):
             assert self.reason_name(reason)
             log.debug('send_disconnect', peer=proto.peer, reason=self.reason_name(reason))
             proto.peer.report_error('sending disconnect %s' % self.reason_name(reason))
-            proto.peer.stop()  # working?
+            gevent.spawn_later(1., proto.peer.stop) #working?
             return dict(reason=reason)
 
         def receive(self, proto, data):
