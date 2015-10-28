@@ -41,6 +41,7 @@ class Peer(gevent.Greenlet):
         hello_packet = P2PProtocol.get_hello_packet(self)
         self.mux = MultiplexedSession(privkey, hello_packet,
                                       token_by_pubkey=dict(), remote_pubkey=remote_pubkey)
+        self.remote_pubkey = remote_pubkey
 
         # register p2p protocol
         assert issubclass(self.peermanager.wire_protocol, P2PProtocol)
@@ -55,6 +56,11 @@ class Peer(gevent.Greenlet):
         "if peer is responder, then the remote_pubkey will not be available"
         "before the first packet is received"
         return self.mux.remote_pubkey
+
+    @remote_pubkey.setter
+    def remote_pubkey(self, value):
+        self.remote_pubkey_available = True if value else False
+        self.mux.remote_pubkey = value
 
     def __repr__(self):
         try:
@@ -101,10 +107,16 @@ class Peer(gevent.Greenlet):
         return protocol in self.protocols
 
     def receive_hello(self, proto, version, client_version_string, capabilities,
-                      listen_port, nodeid):
+                      listen_port, remote_pubkey):
         log.info('received hello', version=version,
                  client_version=client_version_string, capabilities=capabilities)
         self.remote_client_version = client_version_string
+        assert isinstance(remote_pubkey, bytes)
+        assert len(remote_pubkey) == 64
+        if self.remote_pubkey_available:
+            assert self.remote_pubkey == remote_pubkey
+        else:
+            self.remote_pubkey = remote_pubkey
 
         # enable backwards compatibility for legacy peers
         if version < 5:
@@ -113,7 +125,7 @@ class Peer(gevent.Greenlet):
 
         # call peermanager
         agree = self.peermanager.on_hello_received(
-            proto, version, client_version_string, capabilities, listen_port, nodeid)
+            proto, version, client_version_string, capabilities, listen_port, remote_pubkey)
         if not agree:
             return
 

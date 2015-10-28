@@ -67,6 +67,11 @@ class PeerManager(WiredService):
             log.debug('too many peers', max=self.config['p2p']['max_peers'])
             proto.send_disconnect(proto.disconnect.reason.too_many_peers)
             return False
+        if proto.peer.remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
+            log.debug('connected to that node already. disconnecting')
+            proto.send_disconnect(proto.disconnect.reason.useless_peer)
+            return False
+
         return True
 
     @property

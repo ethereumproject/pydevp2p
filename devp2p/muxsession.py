@@ -29,6 +29,10 @@ class MultiplexedSession(multiplexer.Multiplexer):
         "if responder not be available until first message is received"
         return self._remote_pubkey or self.rlpx_session.remote_pubkey
 
+    @remote_pubkey.setter
+    def remote_pubkey(self, value):
+        self._remote_pubkey = value
+
     def _send_init_msg(self):
         auth_msg = self.rlpx_session.create_auth_message(self._remote_pubkey)
         auth_msg_ct = self.rlpx_session.encrypt_auth_message(auth_msg)

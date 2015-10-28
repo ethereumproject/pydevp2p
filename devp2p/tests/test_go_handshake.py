@@ -170,7 +170,7 @@ def test_handshake():
         ('client_version_string', sedes.big_endian_int),
         ('capabilities', sedes.CountableList(_sedes_capabilites_tuple)),
         ('listen_port', sedes.big_endian_int),
-        ('nodeid', sedes.binary)
+        ('remote_pubkey', sedes.binary)
     ]
 
     hello_sedes = sedes.List([x[1] for x in structure])
