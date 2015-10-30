@@ -23,12 +23,12 @@ def test_baseservice():
 
     # start app
     app.start()
-    gevent.sleep(0.1)
+    gevent.sleep(.1)
     app.stop()
 
     # check if they ran concurrently
-    assert s.counter > 0 and s.counter <= 10
-    assert s2.counter > 0 and s2.counter <= 10
+    assert s.counter > 0 and s2.counter > 0
+    assert abs(s.counter - s2.counter) <= 2
 
 
 def test_wiredservice():
