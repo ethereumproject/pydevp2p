@@ -1,8 +1,11 @@
 import logging
+import warnings
+
+
 try:
-    from ethereum.slogging import get_logger, configure
+    from ethereum.slogging import get_logger, configure, configure_logging, getLogger
 except ImportError:
-    print 'could not import slogging'
+    warnings.warn('Ethereum not available, could not import slogging', ImportWarning)
     # patch logging to support kargs
     _log_orig = logging.Logger._log
 
