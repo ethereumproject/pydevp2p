@@ -164,8 +164,7 @@ class P2PProtocol(BaseProtocol):
             assert self.reason_name(reason)
             log.debug('send_disconnect', peer=proto.peer, reason=self.reason_name(reason))
             proto.peer.report_error('sending disconnect %s' % self.reason_name(reason))
-            # Doc says we should wait 2 second before we disconnect.
-            # That can block node from accepting new peers for 2 seconds.
+            # Defer disconnect until message is sent out.
             gevent.spawn_later(0.5, proto.peer.stop)
             return dict(reason=reason)
 
