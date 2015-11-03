@@ -2,7 +2,6 @@ pyelliptic
 wheel
 gevent==1.1b3
 tinyrpc
-pysha3
 bitcoin
 ipaddress
 pytest
@@ -10,5 +9,5 @@ pytest-catchlog==1.1
 pytest-timeout
 coverage
 tox
-pycryptodome
+pycryptodome>=3.3.1
 https://github.com/ethereum/pyrlp/tarball/develop
