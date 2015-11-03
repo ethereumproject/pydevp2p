@@ -12,9 +12,6 @@ from gevent.event import Event
 import signal
 import copy
 import sys
-import devp2p.slogging as slogging
-slogging.configure(config_string=':debug,p2p.discovery:info')
-log = slogging.get_logger('app')
 
 
 def mk_privkey(seed):
