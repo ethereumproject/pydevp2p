@@ -99,7 +99,6 @@ class PeerManager(WiredService):
             log.debug('broadcasting done', ts=time.time())
 
     def _start_peer(self, connection, address, remote_pubkey=None):
-        log.debug('new connect', connection=connection, incoming=bool(not remote_pubkey))
         # create peer
         peer = Peer(self, connection, remote_pubkey=remote_pubkey)
         log.debug('created new peer', peer=peer, fno=connection.fileno())
@@ -129,6 +128,7 @@ class PeerManager(WiredService):
             log.debug('connection error', errno=e.errno, reason=e.strerror)
             self.errors.add(address, 'connection error')
             return False
+        log.debug('connecting to', connection=connection)
         self._start_peer(connection, address, remote_pubkey)
         return True
 
@@ -147,12 +147,13 @@ class PeerManager(WiredService):
         ip = self.config['p2p']['listen_host']
         port = self.config['p2p']['listen_port']
         log.info('starting listener', host=ip, port=port)
-        self.server = StreamServer((ip, port), handle=self.server_handle)
+        self.server = StreamServer((ip, port), handle=self._on_new_connection)
         self.server.start()
         self._bootstrap()
         super(PeerManager, self).start()
 
-    def server_handle(self, connection, address):
+    def _on_new_connection(self, connection, address):
+        log.debug('incoming connection', connection=connection)
         peer = self._start_peer(connection, address)
         # Explicit join is required in gevent >= 1.1.
         # See: https://github.com/gevent/gevent/issues/594
@@ -178,11 +179,11 @@ class PeerManager(WiredService):
                 nodeid = kademlia.random_nodeid()
                 kademlia_proto.find_node(nodeid)  # fixme, should be a task
                 gevent.sleep(self.discovery_delay)  # wait for results
-                neighbours = kademlia_proto.routing.neighbours(nodeid, 1)
+                neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
                 if not neighbours:
                     gevent.sleep(self.connect_loop_delay)
                     continue
-                node = neighbours[0]
+                node = random.choice(neighbours)
                 log.debug('connecting random', node=node)
                 local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
                 if node.pubkey == local_pubkey:

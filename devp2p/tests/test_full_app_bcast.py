@@ -10,13 +10,15 @@ from devp2p.utils import colors, COLOR_END
 from devp2p import app_helper
 import rlp
 import gevent
-import sys
 import devp2p.slogging as slogging
-slogging.configure(config_string=':debug,p2p.discovery:info')
+import sys
+
+slogging.configure(config_string=':debug,p2p.discovery:info,p2p.ctxmonitor:warn,p2p.discovery:warn')
 log = slogging.get_logger('app')
 
 NUM_NODES = 3
 NODES_PASSED = set()
+BCASTS_RECEIVED = 0
 
 
 class Token(rlp.Serializable):
@@ -121,12 +123,33 @@ class ExampleService(WiredService):
         versions = map(lambda p: p.remote_client_version, my_peers_with_hello_received)
         assert len(set(versions)) == len(versions)
 
+        proto.receive_token_callbacks.append(self.on_receive_token)
+
         # check if number of peers that received hello is equal to number of min_peers
         if self.config['p2p']['min_peers'] == len(my_peers_with_hello_received):
             NODES_PASSED.add(my_version)
             if len(NODES_PASSED) == NUM_NODES:
-                # Stop gevent main loop to stop all apps
-                os.kill(os.getpid(), signal.SIGQUIT)
+                self.log("All nodes are OK. Sending token", token=self.config['node_num'])
+                token = Token(counter=int(self.config['node_num']), sender=self.address)
+                self.broadcast(token)
+
+    def broadcast(self, obj, origin=None):
+        fmap = {Token: 'token'}
+        self.log('broadcasting', obj=obj)
+        bcast = self.app.services.peermanager.broadcast
+        bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
+              exclude_peers=[origin.peer] if origin else [])
+
+    def on_receive_token(self, proto, token):
+        assert isinstance(token, Token)
+        assert isinstance(proto, self.wire_protocol)
+        self.log('----------------------------------')
+        self.log('on_receive token', token=token, proto=proto)
+        global BCASTS_RECEIVED
+        BCASTS_RECEIVED += 1
+        if BCASTS_RECEIVED >= NUM_NODES - 1:
+            # Test passed. Stop gevent main loop to stop all apps
+            os.kill(os.getpid(), signal.SIGQUIT)
 
 
 class ExampleApp(BaseApp):
@@ -142,5 +165,8 @@ class ExampleApp(BaseApp):
 
 @pytest.mark.timeout(10)
 def test_full_app():
-    app_helper.run(ExampleApp, ExampleService, num_nodes=NUM_NODES)
+    app_helper.run(ExampleApp, ExampleService,
+                   num_nodes=NUM_NODES, min_peers=NUM_NODES-1, max_peers=NUM_NODES-1)
+
     assert NUM_NODES == len(NODES_PASSED)
+    assert BCASTS_RECEIVED >= NUM_NODES - 1

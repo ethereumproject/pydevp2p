@@ -86,7 +86,7 @@ class Peer(gevent.Greenlet):
         try:
             return self.connection.getpeername()
         except Exception as e:
-            log.debug('ip_port failed')
+            log.debug('ip_port failed', e=e)
             raise e
 
     def connect_service(self, service):
@@ -155,6 +155,7 @@ class Peer(gevent.Greenlet):
         for i, protocol in enumerate(self.protocols.values()):
             if packet.protocol_id == protocol.protocol_id:
                 break
+
         assert packet.protocol_id == protocol.protocol_id, 'no protocol found'
         log.debug('send packet', cmd=protocol.cmd_by_id[packet.cmd_id], protcol=protocol.name,
                   peer=self)
@@ -247,14 +248,15 @@ class Peer(gevent.Greenlet):
             except gevent.socket.error as e:
                 log.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
                 self.report_error('network error %s' % e.strerror)
-                if e.errno in(50, 54, 60, 65):
-                    # (Network down, Connection reset by peer, timeout, nor route to host)
+                if e.errno in(50, 54, 60, 65, 104):
+                    # (Network down, Connection reset by peer, timeout, no route to host,
+                    # Connection reset by peer)
                     self.stop()
                 else:
                     raise e
                     break
             if imsg:
-                log.debug('read message', ts=time.time(), size=len(imsg))
+                log.debug('read data', ts=time.time(), size=len(imsg))
                 try:
                     self.mux.add_message(imsg)
                 except (rlpxcipher.RLPxSessionError, ECIESDecryptionError) as e:
