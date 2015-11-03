@@ -9,13 +9,9 @@ from devp2p.crypto import privtopub as privtopub_raw, sha3
 from devp2p.utils import colors, COLOR_END
 from devp2p import app_helper
 import rlp
-import gevent
-import devp2p.slogging as slogging
 import sys
 
-slogging.configure(config_string=':debug,p2p.discovery:info,p2p.ctxmonitor:warn,p2p.discovery:warn')
-log = slogging.get_logger('app')
-
+log = None
 NUM_NODES = 3
 NODES_PASSED = set()
 BCASTS_RECEIVED = 0
@@ -89,6 +85,8 @@ class ExampleService(WiredService):
         super(ExampleService, self).start()
 
     def log(self, text, **kargs):
+        if not log:
+            return
         node_num = self.config['node_num']
         msg = ' '.join([
             colors[node_num % len(colors)],
@@ -170,3 +168,9 @@ def test_full_app():
 
     assert NUM_NODES == len(NODES_PASSED)
     assert BCASTS_RECEIVED >= NUM_NODES - 1
+
+
+if __name__ == "__main__":
+    import devp2p.slogging as slogging
+    slogging.configure(config_string=':debug,p2p.discovery:info')
+    log = slogging.get_logger('app')

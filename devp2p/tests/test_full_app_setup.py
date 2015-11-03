@@ -11,10 +11,8 @@ from devp2p import app_helper
 import rlp
 import gevent
 import sys
-import devp2p.slogging as slogging
-slogging.configure(config_string=':debug,p2p.discovery:info')
-log = slogging.get_logger('app')
 
+log = None
 NUM_NODES = 3
 NODES_PASSED = set()
 
@@ -87,6 +85,8 @@ class ExampleService(WiredService):
         super(ExampleService, self).start()
 
     def log(self, text, **kargs):
+        if not log:
+            return
         node_num = self.config['node_num']
         msg = ' '.join([
             colors[node_num % len(colors)],
@@ -144,3 +144,9 @@ class ExampleApp(BaseApp):
 def test_full_app():
     app_helper.run(ExampleApp, ExampleService, num_nodes=NUM_NODES)
     assert NUM_NODES == len(NODES_PASSED)
+
+
+if __name__ == "__main__":
+    import devp2p.slogging as slogging
+    slogging.configure(config_string=':debug,p2p.discovery:info')
+    log = slogging.get_logger('app')
