@@ -9,5 +9,6 @@ pytest-catchlog==1.1
 pytest-timeout
 coverage
 tox
+c_secp256k1>=0.0.6
 pycryptodome>=3.3.1
 https://github.com/ethereum/pyrlp/tarball/develop
