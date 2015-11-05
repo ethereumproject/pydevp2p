@@ -80,10 +80,18 @@ class ExampleService(WiredService):
     def __init__(self, app):
         self.config = app.config
         self.address = privtopub_raw(self.config['node']['privkey_hex'].decode('hex'))
+        gevent.spawn_later(0.5, self.tick)
         super(ExampleService, self).__init__(app)
 
     def start(self):
         super(ExampleService, self).start()
+
+    def broadcast(self, obj, origin=None):
+        fmap = {Token: 'token'}
+        self.log('broadcasting', obj=obj)
+        bcast = self.app.services.peermanager.broadcast
+        bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
+              exclude_peers=[origin.peer] if origin else [])
 
     def log(self, text, **kargs):
         if not log:
@@ -130,9 +138,8 @@ class ExampleService(WiredService):
             if len(NODES_PASSED_SETUP) == NUM_NODES:
                 self.on_all_nodes_ready()
 
-    def killall(self):
-        # Test passed. Stop gevent main loop to stop all apps
-        os.kill(os.getpid(), signal.SIGQUIT)
+    def tick(self):
+        pass
 
     def on_all_nodes_ready(self):
         pass
@@ -141,29 +148,25 @@ class ExampleService(WiredService):
         pass
 
 
-class ExampleService1(ExampleService):
+class ExampleServiceSetup(ExampleService):
     def __init__(self, app):
-        super(ExampleService1, self).__init__(app)
+        super(ExampleServiceSetup, self).__init__(app)
 
-    def on_all_nodes_ready(self):
-        self.killall()
+    def tick(self):
+        if NUM_NODES == len(NODES_PASSED_SETUP):
+            self.app.stop()
+            return
+        gevent.spawn_later(0.5, self.tick)
 
 
-class ExampleService2(ExampleService):
+class ExampleServiceBcast(ExampleService):
     def __init__(self, app):
-        super(ExampleService2, self).__init__(app)
+        super(ExampleServiceBcast, self).__init__(app)
 
     def on_all_nodes_ready(self):
         self.log("All nodes are OK. Sending token", token=self.config['node_num'])
         token = Token(counter=int(self.config['node_num']), sender=self.address)
         self.broadcast(token)
-
-    def broadcast(self, obj, origin=None):
-        fmap = {Token: 'token'}
-        self.log('broadcasting', obj=obj)
-        bcast = self.app.services.peermanager.broadcast
-        bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
-              exclude_peers=[origin.peer] if origin else [])
 
     def on_receive_token(self, proto, token):
         assert isinstance(token, Token)
@@ -171,13 +174,17 @@ class ExampleService2(ExampleService):
         self.log('----------------------------------')
         self.log('on_receive token', token=token, proto=proto)
         NODES_PASSED_BCAST.add(self.config['node_num'])
+
+    def tick(self):
         if len(NODES_PASSED_BCAST) >= NUM_NODES - 1:
-            self.killall()
+            self.app.stop()
+            return
+        gevent.spawn_later(0.5, self.tick)
 
 
-class ExampleService3(ExampleService):
+class ExampleServiceIncCounter(ExampleService):
     def __init__(self, app):
-        super(ExampleService3, self).__init__(app)
+        super(ExampleServiceIncCounter, self).__init__(app)
         self.collected = set()
         self.broadcasted = set()
         self.is_stopping = False
@@ -185,13 +192,6 @@ class ExampleService3(ExampleService):
 
     def on_all_nodes_ready(self):
         self.send_synchro_token()
-
-    def broadcast(self, obj, origin=None):
-        fmap = {Token: 'token'}
-        self.log('broadcasting', obj=obj)
-        bcast = self.app.services.peermanager.broadcast
-        bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
-              exclude_peers=[origin.peer] if origin else [])
 
     def on_receive_token(self, proto, token):
         assert isinstance(token, Token)
@@ -246,10 +246,10 @@ class ExampleService3(ExampleService):
             self.log("COUNTER LIMIT REACHED. STOP THE APP")
             self.is_stopping = True
             # defer until all broadcast arrive
-            gevent.spawn_later(2.0, self.assert_and_stop)
+            gevent.spawn_later(2.0, self.assert_collected)
 
-    def assert_and_stop(self):
-        self.log("TEST FINISHED", broadcasted=len(self.broadcasted), collected=len(self.collected))
+    def assert_collected(self):
+        self.log("ASSERT", broadcasted=len(self.broadcasted), collected=len(self.collected))
         assert len(self.collected) > len(self.broadcasted)
 
         for turn in xrange(1, self.counter_limit):
@@ -260,11 +260,11 @@ class ExampleService3(ExampleService):
 
         NODES_PASSED_INC_COUNTER.add(self.config['node_num'])
 
-        self.app.stop()
-        gevent.spawn_later(2.0, self.killall)
-
-    def killall(self):
-        os.kill(os.getpid(), signal.SIGQUIT)
+    def tick(self):
+        if len(NODES_PASSED_INC_COUNTER) == NUM_NODES:
+            self.app.stop()
+            return
+        gevent.spawn_later(0.5, self.tick)
 
 
 class ExampleApp(BaseApp):
@@ -282,7 +282,7 @@ class ExampleApp(BaseApp):
 def test_full_app_setup():
     NODES_PASSED_SETUP.clear()
 
-    app_helper.run(ExampleApp, ExampleService1, num_nodes=NUM_NODES)
+    app_helper.run(ExampleApp, ExampleServiceSetup, num_nodes=NUM_NODES)
     assert NUM_NODES == len(NODES_PASSED_SETUP)
 
 
@@ -291,7 +291,7 @@ def test_full_app_bcast():
     NODES_PASSED_SETUP.clear()
     NODES_PASSED_BCAST.clear()
 
-    app_helper.run(ExampleApp, ExampleService2,
+    app_helper.run(ExampleApp, ExampleServiceBcast,
                    num_nodes=NUM_NODES, min_peers=NUM_NODES-1, max_peers=NUM_NODES-1)
 
     assert len(NODES_PASSED_BCAST) >= NUM_NODES - 1
@@ -302,7 +302,7 @@ def test_full_app_inc_counter():
     NODES_PASSED_SETUP.clear()
     NODES_PASSED_INC_COUNTER.clear()
 
-    app_helper.run(ExampleApp, ExampleService3,
+    app_helper.run(ExampleApp, ExampleServiceIncCounter,
                    num_nodes=NUM_NODES, min_peers=NUM_NODES-1, max_peers=NUM_NODES-1)
 
     assert len(NODES_PASSED_INC_COUNTER) == NUM_NODES

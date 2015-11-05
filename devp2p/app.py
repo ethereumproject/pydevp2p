@@ -40,6 +40,10 @@ class BaseApp(object):
         for service in self.services.values():
             service.stop()
 
+    def join(self):
+        for service in self.services.values():
+            service.join()
+
 
 def main():
     # config
