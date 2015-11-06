@@ -60,12 +60,9 @@ def serve_until_stopped(apps):
         if app.config['post_app_start_callback'] is not None:
             app.config['post_app_start_callback'](app)
 
-    # wait for interrupt
-    evt = Event()
-    gevent.signal(signal.SIGQUIT, evt.set)
-    gevent.signal(signal.SIGTERM, evt.set)
-    gevent.signal(signal.SIGINT, evt.set)
-    evt.wait()
+    # wait for apps to finish
+    for app in apps:
+        app.join()
 
     # finally stop
     for app in apps:
