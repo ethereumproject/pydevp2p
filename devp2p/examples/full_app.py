@@ -1,16 +1,21 @@
+import sys
 import time
+import random
 from devp2p.app import BaseApp
 from devp2p.protocol import BaseProtocol
 from devp2p.service import WiredService
 from devp2p.crypto import privtopub as privtopub_raw, sha3
-from devp2p.utils import  colors, COLOR_END
+from devp2p.utils import colors, COLOR_END
 from devp2p import app_helper
 import rlp
 import gevent
-import sys
-import ethereum.slogging as slogging
-slogging.configure(config_string=':debug,p2p.discovery:info')
+try:
+    import ethereum.slogging as slogging
+    slogging.configure(config_string=':debug,p2p.discovery:info')
+except:
+    import devp2p.slogging as slogging
 log = slogging.get_logger('app')
+
 
 class Token(rlp.Serializable):
 
@@ -94,8 +99,6 @@ class ExampleService(WiredService):
 
     def __init__(self, app):
         self.config = app.config
-        self.broadcast_filter = DuplicatesFilter()
-        self.counter = 0
         self.address = privtopub_raw(self.config['node']['privkey_hex'].decode('hex'))
         super(ExampleService, self).__init__(app)
 
@@ -112,22 +115,17 @@ class ExampleService(WiredService):
             COLOR_END])
         log.debug(msg)
 
-    def on_wire_protocol_stop(self, proto):
-        assert isinstance(proto, self.wire_protocol)
-        self.log('----------------------------------')
-        self.log('on_wire_protocol_stop', proto=proto)
-
     def broadcast(self, obj, origin=None):
-        """
-        """
         fmap = {Token: 'token'}
-        if not self.broadcast_filter.update(obj.hash):
-            self.log('already broadcasted', obj=obj)
-            return
         self.log('broadcasting', obj=obj)
         bcast = self.app.services.peermanager.broadcast
         bcast(ExampleProtocol, fmap[type(obj)], args=(obj,),
               exclude_peers=[origin.peer] if origin else [])
+
+    def on_wire_protocol_stop(self, proto):
+        assert isinstance(proto, self.wire_protocol)
+        self.log('----------------------------------')
+        self.log('on_wire_protocol_stop', proto=proto)
 
     # application logic
 
@@ -137,9 +135,6 @@ class ExampleService(WiredService):
         assert isinstance(proto, self.wire_protocol)
         # register callbacks
         proto.receive_token_callbacks.append(self.on_receive_token)
-
-        # wait for other nodes
-        gevent.sleep(1)
         self.send_token()
 
     def on_receive_token(self, proto, token):
@@ -147,20 +142,12 @@ class ExampleService(WiredService):
         assert isinstance(proto, self.wire_protocol)
         self.log('----------------------------------')
         self.log('on_receive token', token=token, proto=proto)
-        if token.hash in self.broadcast_filter:
-            self.log('known token')
-            return
-        if token.counter != self.counter + 1:
-            self.log('invalid token, not in sync')
-            return
-        self.counter = token.counter
         self.send_token()
 
     def send_token(self):
-        turn = self.counter % self.config['num_nodes']
-        if turn != self.config['node_num']:
-            return
-        token = Token(counter=self.counter + 1, sender=self.address)
+        gevent.sleep(random.random())
+        token = Token(counter=random.randint(0, 1024), sender=self.address)
+        self.log('----------------------------------')
         self.log('sending token', token=token)
         self.broadcast(token)
 
