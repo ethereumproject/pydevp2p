@@ -137,5 +137,5 @@ if __name__ == "__main__":
     import devp2p.slogging as slogging
     slogging.configure(config_string=':debug,p2p:info')
     log = slogging.get_logger('app')
-    TestFullAppIncCounter().test_full_app(3)
-    TestFullAppIncCounter().test_full_app(6)
+    TestFullApp().test_inc_counter_app(3)
+    TestFullApp().test_inc_counter_app(6)
