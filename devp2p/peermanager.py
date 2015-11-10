@@ -60,6 +60,9 @@ class PeerManager(WiredService):
             self.config['node']['id'] = crypto.privtopub(
                 self.config['node']['privkey_hex'].decode('hex'))
 
+        self.listen_addr = (self.config['p2p']['listen_host'], self.config['p2p']['listen_port'])
+        self.server = StreamServer(self.listen_addr, handle=self._on_new_connection)
+
     def on_hello_received(self, proto, version, client_version_string, capabilities,
                           listen_port, nodeid):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
@@ -144,10 +147,7 @@ class PeerManager(WiredService):
     def start(self):
         log.info('starting peermanager')
         # start a listening server
-        ip = self.config['p2p']['listen_host']
-        port = self.config['p2p']['listen_port']
-        log.info('starting listener', host=ip, port=port)
-        self.server = StreamServer((ip, port), handle=self._on_new_connection)
+        log.info('starting listener', addr=self.listen_addr)
         self.server.start()
         self._bootstrap()
         super(PeerManager, self).start()
