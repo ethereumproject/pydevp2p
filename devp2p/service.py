@@ -30,6 +30,7 @@ class BaseService(Greenlet):
             assert r in available_service, (r, available_service)
 
     def start(self):
+        self.is_stopped = False
         Greenlet.start(self)
 
     def stop(self):

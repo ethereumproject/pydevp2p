@@ -115,8 +115,30 @@ class ExampleServiceIncCounter(ExampleService):
         gevent.spawn_later(0.5, self.tick)
 
 
-# xfail until issue 'error: [Errno 98] Address already in use' is not fixed
-@pytest.mark.xfail
+class ExampleServiceAppRestart(ExampleService):
+    def __init__(self, app):
+        super(ExampleServiceAppRestart, self).__init__(app)
+        gevent.spawn_later(0.5, self.tick)
+
+    def on_wire_protocol_start(self, proto):
+        my_version = self.config['node_num']
+        # Restart only NODE0's app
+        self.log('protocol_start {}'.format(my_version))
+        if my_version == 0:
+            if self.testdriver.APP_RESTARTED:
+                self.testdriver.TEST_SUCCESSFUL = True
+            else:
+                self.app.stop()
+                self.app.start()
+                self.testdriver.APP_RESTARTED = True
+
+    def tick(self):
+        if self.testdriver.TEST_SUCCESSFUL:
+            self.app.stop()
+            return
+        gevent.spawn_later(0.5, self.tick)
+
+
 @pytest.mark.parametrize('num_nodes', [3, 6])
 class TestFullApp:
     @pytest.mark.timeout(30)
@@ -133,9 +155,28 @@ class TestFullApp:
                        num_nodes=num_nodes, min_peers=num_nodes-1, max_peers=num_nodes-1)
 
 
+@pytest.mark.timeout(10)
+def test_app_restart():
+    """
+    Test scenario:
+    - Restart the app on 1st node when the node is on_wire_protocol_start
+    - Check that this node gets on_wire_protocol_start at least once after restart
+        - on_wire_protocol_start indicates that node was able to communicate after restart
+    """
+    class TestDriver(object):
+        APP_RESTARTED = False
+        TEST_SUCCESSFUL = False
+
+    ExampleServiceAppRestart.testdriver = TestDriver()
+
+    app_helper.run(ExampleApp, ExampleServiceAppRestart,
+                   num_nodes=3, min_peers=2, max_peers=2)
+
+
 if __name__ == "__main__":
     import devp2p.slogging as slogging
     slogging.configure(config_string=':debug,p2p:info')
     log = slogging.get_logger('app')
     TestFullApp().test_inc_counter_app(3)
     TestFullApp().test_inc_counter_app(6)
+    test_app_restart()
