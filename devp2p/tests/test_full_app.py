@@ -141,6 +141,7 @@ class ExampleServiceAppRestart(ExampleService):
 
 @pytest.mark.parametrize('num_nodes', [3, 6])
 class TestFullApp:
+    @pytest.mark.xfail
     @pytest.mark.timeout(30)
     def test_inc_counter_app(self, num_nodes):
         class TestDriver(object):
