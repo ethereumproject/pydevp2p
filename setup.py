@@ -31,8 +31,7 @@ readme = open('README.rst').read()
 history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 
-#test_requirements = ['sphinx']  # added to requirements. travis doesn't seem to care
-test_requirements = []
+test_requirements = ['sphinx']  # added to requirements. travis doesn't seem to care
 
 install_requires = set(x.strip() for x in open('requirements.txt'))
 install_requires_replacements = {

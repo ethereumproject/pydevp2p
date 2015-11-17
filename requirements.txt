@@ -1,3 +1,7 @@
+py>=1.4.29
+pytest
+pytest-timeout
+pytest-catchlog
 pyelliptic
 wheel
 gevent==1.1b3
@@ -5,8 +9,6 @@ tinyrpc
 pysha3
 bitcoin
 ipaddress
-pytest
-pytest-timeout
 coverage
 tox
 pycryptodome
