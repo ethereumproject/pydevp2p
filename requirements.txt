@@ -6,7 +6,6 @@ pysha3
 bitcoin
 ipaddress
 pytest
-pytest-catchlog==1.1
 pytest-timeout
 coverage
 tox
