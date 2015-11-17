@@ -65,17 +65,33 @@ COLOR_BOLD = '\033[1m'
 COLOR_UNDERLINE = '\033[4m'
 COLOR_END = '\033[0m'
 
-colors = ['\033[9%dm' % i for i in range(0, 7)]
-colors += ['\033[4%dm' % i for i in range(1, 8)]
+alpha_bg_colors = ['\033[9%dm' % i for i in range(0, 7)]
+solid_bg_colors = ['\033[4%dm' % i for i in range(1, 8)]
+
+colors = alpha_bg_colors + solid_bg_colors
+
 
 def cstr(num, txt):
     return '%s%s%s' % (colors[num % len(colors)], txt, COLOR_END)
 
+
 def cprint(num, txt):
     print cstr(num, txt)
 
+
 def phx(x):
     return x.encode('hex')[:8]
+
+
+def solid_background_str(num, txt, **kargs):
+    kw = ' %r' % kargs if kargs else ''
+    return '%s[%d]\t%s%s%s' % (solid_bg_colors[num % len(solid_bg_colors)], num, txt, kw, COLOR_END)
+
+
+def alpha_background_str(num, txt, **kargs):
+    kw = ' %r' % kargs if kargs else ''
+    return '%s[%d]\t%s%s%s' % (alpha_bg_colors[num % len(alpha_bg_colors)], num, txt, kw, COLOR_END)
+
 
 if __name__ == '__main__':
     for i in range(len(colors)):

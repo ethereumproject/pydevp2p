@@ -11,6 +11,7 @@ from crypto import ECIESDecryptionError
 import slogging
 import gevent.socket
 import rlpxcipher
+from utils import solid_background_str
 
 log = slogging.get_logger('p2p.peer')
 
@@ -26,6 +27,7 @@ class Peer(gevent.Greenlet):
     remote_client_version = ''
     offset_based_dispatch = False
     wait_read_timeout = 0.001
+    color_log = False
 
     def __init__(self, peermanager, connection, remote_pubkey=None):  # FIXME node vs remote_pubkey
         super(Peer, self).__init__()
@@ -34,7 +36,7 @@ class Peer(gevent.Greenlet):
         self.connection = connection
         self.config = peermanager.config
         self.protocols = OrderedDict()
-        log.debug('peer init', peer=self)
+        self.debug('peer init', peer=self)
 
         # create multiplexed encrypted session
         privkey = self.config['node']['privkey_hex'].decode('hex')
@@ -86,7 +88,7 @@ class Peer(gevent.Greenlet):
         try:
             return self.connection.getpeername()
         except Exception as e:
-            log.debug('ip_port failed', e=e)
+            self.debug('ip_port failed', e=e)
             raise e
 
     def connect_service(self, service):
@@ -97,7 +99,7 @@ class Peer(gevent.Greenlet):
         protocol = protocol_class(self, service)
         # register protocol
         assert protocol_class not in self.protocols
-        log.debug('registering protocol', protocol=protocol.name, peer=self)
+        self.debug('registering protocol', protocol=protocol.name, peer=self)
         self.protocols[protocol_class] = protocol
         self.mux.add_protocol(protocol.protocol_id)
         protocol.start()
@@ -108,8 +110,8 @@ class Peer(gevent.Greenlet):
 
     def receive_hello(self, proto, version, client_version_string, capabilities,
                       listen_port, remote_pubkey):
-        log.info('received hello', version=version,
-                 client_version=client_version_string, capabilities=capabilities)
+        self.info('received hello', version=version,
+                  client_version=client_version_string, capabilities=capabilities)
         self.remote_client_version = client_version_string
         assert isinstance(remote_pubkey, bytes)
         assert len(remote_pubkey) == 64
@@ -130,7 +132,7 @@ class Peer(gevent.Greenlet):
             return
 
         # register in common protocols
-        log.debug('connecting services', services=self.peermanager.wired_services)
+        self.debug('connecting services', services=self.peermanager.wired_services)
         remote_services = dict((name, version) for name, version in capabilities)
         for service in sorted(self.peermanager.wired_services, key=operator.attrgetter('name')):
             proto = service.wire_protocol
@@ -140,8 +142,8 @@ class Peer(gevent.Greenlet):
                     if service != self.peermanager:  # p2p protcol already registered
                         self.connect_service(service)
                 else:
-                    log.debug('wrong version', service=proto.name, local_version=proto.version,
-                              remote_version=remote_services[proto.name])
+                    self.debug('wrong version', service=proto.name, local_version=proto.version,
+                               remote_version=remote_services[proto.name])
                     self.report_error('wrong version')
 
     @property
@@ -157,8 +159,8 @@ class Peer(gevent.Greenlet):
                 break
 
         assert packet.protocol_id == protocol.protocol_id, 'no protocol found'
-        log.debug('send packet', cmd=protocol.cmd_by_id[packet.cmd_id], protcol=protocol.name,
-                  peer=self)
+        self.debug('send packet', cmd=protocol.cmd_by_id[packet.cmd_id], protcol=protocol.name,
+                   peer=self)
         # rewrite cmd_id (backwards compatibility)
         if self.offset_based_dispatch:
             for i, protocol in enumerate(self.protocols.values()):
@@ -193,8 +195,8 @@ class Peer(gevent.Greenlet):
         except UnknownCommandError, e:
             log.error('received unknown cmd', error=e, packet=packet)
             return
-        log.debug('recv packet', cmd=protocol.cmd_by_id[
-                  cmd_id], protocol=protocol.name, orig_cmd_id=packet.cmd_id)
+        self.debug('recv packet', cmd=protocol.cmd_by_id[
+                   cmd_id], protocol=protocol.name, orig_cmd_id=packet.cmd_id)
         packet.cmd_id = cmd_id  # rewrite
         protocol.receive_packet(packet)
 
@@ -204,13 +206,13 @@ class Peer(gevent.Greenlet):
         self.safe_to_read.clear()  # make sure we don't accept any data until message is sent
         try:
             self.connection.sendall(data)  # check if gevent chunkes and switches contexts
-            log.debug('wrote data', size=len(data), ts=time.time())
+            self.debug('wrote data', size=len(data), ts=time.time())
         except gevent.socket.error as e:
-            log.debug('write error', errno=e.errno, reason=e.strerror)
+            self.debug('write error', errno=e.errno, reason=e.strerror)
             self.report_error('write error %r' % e.strerror)
             self.stop()
         except gevent.socket.timeout:
-            log.debug('write timeout')
+            self.debug('write timeout')
             self.report_error('write timeout')
             self.stop()
         self.safe_to_read.set()
@@ -225,7 +227,7 @@ class Peer(gevent.Greenlet):
             self._handle_packet(self.mux.packet_queue.get())  # get_packet blocks
 
     def _run_ingress_message(self):
-        log.debug('peer starting main loop')
+        self.debug('peer starting main loop')
         assert not self.connection.closed, "connection is closed"
         gevent.spawn(self._run_decoded_packets)
         gevent.spawn(self._run_egress_message)
@@ -235,7 +237,7 @@ class Peer(gevent.Greenlet):
             try:
                 gevent.socket.wait_read(self.connection.fileno())
             except gevent.socket.error as e:
-                log.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
+                self.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
                 self.report_error('network error %s' % e.strerror)
                 if e.errno in(9,):
                     # ('Bad file descriptor')
@@ -246,7 +248,7 @@ class Peer(gevent.Greenlet):
             try:
                 imsg = self.connection.recv(4096)
             except gevent.socket.error as e:
-                log.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
+                self.debug('read error', errno=e.errno, reason=e.strerror, peer=self)
                 self.report_error('network error %s' % e.strerror)
                 if e.errno in(50, 54, 60, 65, 104):
                     # (Network down, Connection reset by peer, timeout, no route to host,
@@ -256,15 +258,15 @@ class Peer(gevent.Greenlet):
                     raise e
                     break
             if imsg:
-                log.debug('read data', ts=time.time(), size=len(imsg))
+                self.debug('read data', ts=time.time(), size=len(imsg))
                 try:
                     self.mux.add_message(imsg)
                 except (rlpxcipher.RLPxSessionError, ECIESDecryptionError) as e:
-                    log.debug('rlpx session error', peer=self, error=e)
+                    self.debug('rlpx session error', peer=self, error=e)
                     self.report_error('rlpx session error')
                     self.stop()
                 except multiplexer.MultiplexerError as e:
-                    log.debug('multiplexer error', peer=self, error=e)
+                    self.debug('multiplexer error', peer=self, error=e)
                     self.report_error('multiplexer error')
                     self.stop()
 
@@ -273,8 +275,28 @@ class Peer(gevent.Greenlet):
     def stop(self):
         if not self.is_stopped:
             self.is_stopped = True
-            log.debug('stopped', peer=self)
+            self.debug('stopped', peer=self)
             for p in self.protocols.values():
                 p.stop()
             self.peermanager.peers.remove(self)
             self.kill()
+
+    def _log_proxy(self, method_name, *args, **kwargs):
+        if self.color_log:
+            try:
+                num = self.ip_port[1]
+            except:
+                num = id(self)
+
+            msg = solid_background_str(num, *args, **kwargs)
+            return getattr(log, method_name)(msg)
+        else:
+            return getattr(log, method_name)(*args, **kwargs)
+
+    trace = lambda self, *args, **kwargs: self._log_proxy('trace', *args, **kwargs)
+    debug = lambda self, *args, **kwargs: self._log_proxy('debug', *args, **kwargs)
+    info = lambda self, *args, **kwargs: self._log_proxy('info', *args, **kwargs)
+    warn = warning = lambda self, *args, **kwargs: self._log_proxy('warning', *args, **kwargs)
+    error = lambda self, *args, **kwargs: self._log_proxy('error', *args, **kwargs)
+    exception = lambda self, *args, **kwargs: self._log_proxy('exception', *args, **kwargs)
+    fatal = critical = lambda self, *args, **kwargs: self._log_proxy('critical', *args, **kwargs)

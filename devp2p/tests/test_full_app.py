@@ -2,6 +2,8 @@ import pytest
 import os
 import time
 from devp2p import app_helper
+from devp2p.peer import Peer
+from devp2p.peermanager import PeerManager
 from devp2p.examples.full_app import Token, ExampleService, ExampleProtocol, ExampleApp
 import gevent
 
@@ -139,23 +141,6 @@ class ExampleServiceAppRestart(ExampleService):
         gevent.spawn_later(0.5, self.tick)
 
 
-@pytest.mark.parametrize('num_nodes', [3, 6])
-class TestFullApp:
-    @pytest.mark.xfail
-    @pytest.mark.timeout(30)
-    def test_inc_counter_app(self, num_nodes):
-        class TestDriver(object):
-            NUM_NODES = num_nodes
-            COUNTER_LIMIT = 1024
-            NODES_PASSED_SETUP = set()
-            NODES_PASSED_INC_COUNTER = set()
-
-        ExampleServiceIncCounter.testdriver = TestDriver()
-
-        app_helper.run(ExampleApp, ExampleServiceIncCounter,
-                       num_nodes=num_nodes, min_peers=num_nodes-1, max_peers=num_nodes-1)
-
-
 @pytest.mark.timeout(10)
 def test_app_restart():
     """
@@ -174,10 +159,29 @@ def test_app_restart():
                    num_nodes=3, min_peers=2, max_peers=2)
 
 
+@pytest.mark.parametrize('num_nodes', [3, 6])
+class TestFullApp:
+    @pytest.mark.xfail
+    @pytest.mark.timeout(30)
+    def test_inc_counter_app(self, num_nodes):
+        class TestDriver(object):
+            NUM_NODES = num_nodes
+            COUNTER_LIMIT = 1024
+            NODES_PASSED_SETUP = set()
+            NODES_PASSED_INC_COUNTER = set()
+
+        ExampleServiceIncCounter.testdriver = TestDriver()
+
+        app_helper.run(ExampleApp, ExampleServiceIncCounter,
+                       num_nodes=num_nodes, min_peers=num_nodes-1, max_peers=num_nodes-1)
+
+
 if __name__ == "__main__":
     import devp2p.slogging as slogging
     slogging.configure(config_string=':debug,p2p:info')
     log = slogging.get_logger('app')
+    Peer.color_log = True
+    PeerManager.color_log = True
     TestFullApp().test_inc_counter_app(3)
     TestFullApp().test_inc_counter_app(6)
     test_app_restart()
