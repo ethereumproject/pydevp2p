@@ -63,14 +63,14 @@ class PeerManager(WiredService):
         self.server = StreamServer(self.listen_addr, handle=self._on_new_connection)
 
     def on_hello_received(self, proto, version, client_version_string, capabilities,
-                          listen_port, nodeid):
+                          listen_port, remote_pubkey):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
-        if len(self.peers) > max(self.config['p2p']['max_peers'], self.config['p2p']['max_peers']):
+        if len(self.peers) > self.config['p2p']['max_peers']:
             log.debug('too many peers', max=self.config['p2p']['max_peers'])
             proto.send_disconnect(proto.disconnect.reason.too_many_peers)
             return False
-        if proto.peer.remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
-            log.debug('connected to that node already. disconnecting')
+        if remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
+            log.debug('connected to that node already')
             proto.send_disconnect(proto.disconnect.reason.useless_peer)
             return False
 
