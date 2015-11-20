@@ -6,7 +6,7 @@ bitcoin
 ipaddress
 pytest
 pytest-catchlog==1.1
-pytest-timeout
+pytest-timeout==0.5
 coverage
 tox
 c_secp256k1>=0.0.7
