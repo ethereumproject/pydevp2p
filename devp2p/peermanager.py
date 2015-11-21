@@ -8,7 +8,6 @@ from gevent.socket import create_connection, timeout
 from service import WiredService
 from protocol import BaseProtocol
 from p2p_protocol import P2PProtocol
-from discovery import NodeDiscovery
 import kademlia
 from peer import Peer
 import crypto
@@ -60,15 +59,18 @@ class PeerManager(WiredService):
             self.config['node']['id'] = crypto.privtopub(
                 self.config['node']['privkey_hex'].decode('hex'))
 
+        self.listen_addr = (self.config['p2p']['listen_host'], self.config['p2p']['listen_port'])
+        self.server = StreamServer(self.listen_addr, handle=self._on_new_connection)
+
     def on_hello_received(self, proto, version, client_version_string, capabilities,
-                          listen_port, nodeid):
+                          listen_port, remote_pubkey):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
-        if len(self.peers) > max(self.config['p2p']['max_peers'], self.config['p2p']['max_peers']):
+        if len(self.peers) > self.config['p2p']['max_peers']:
             log.debug('too many peers', max=self.config['p2p']['max_peers'])
             proto.send_disconnect(proto.disconnect.reason.too_many_peers)
             return False
-        if proto.peer.remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
-            log.debug('connected to that node already. disconnecting')
+        if remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
+            log.debug('connected to that node already')
             proto.send_disconnect(proto.disconnect.reason.useless_peer)
             return False
 
@@ -144,13 +146,12 @@ class PeerManager(WiredService):
     def start(self):
         log.info('starting peermanager')
         # start a listening server
-        ip = self.config['p2p']['listen_host']
-        port = self.config['p2p']['listen_port']
-        log.info('starting listener', host=ip, port=port)
-        self.server = StreamServer((ip, port), handle=self._on_new_connection)
+        log.info('starting listener', addr=self.listen_addr)
+        self.server.set_handle(self._on_new_connection)
         self.server.start()
         self._bootstrap()
         super(PeerManager, self).start()
+        gevent.spawn_later(0.000001, self._discovery_loop)
 
     def _on_new_connection(self, connection, address):
         log.debug('incoming connection', connection=connection)
@@ -167,7 +168,7 @@ class PeerManager(WiredService):
             log.error('stopped peers in peers list', inlist=len(ps), active=len(aps))
         return len(aps)
 
-    def _run(self):
+    def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
         while not self.is_stopped:

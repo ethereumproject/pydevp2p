@@ -27,7 +27,7 @@ class Peer(gevent.Greenlet):
     offset_based_dispatch = False
     wait_read_timeout = 0.001
 
-    def __init__(self, peermanager, connection, remote_pubkey=None):  # FIXME node vs remote_pubkey
+    def __init__(self, peermanager, connection, remote_pubkey=None):
         super(Peer, self).__init__()
         self.is_stopped = False
         self.peermanager = peermanager
@@ -110,13 +110,10 @@ class Peer(gevent.Greenlet):
                       listen_port, remote_pubkey):
         log.info('received hello', version=version,
                  client_version=client_version_string, capabilities=capabilities)
-        self.remote_client_version = client_version_string
         assert isinstance(remote_pubkey, bytes)
         assert len(remote_pubkey) == 64
         if self.remote_pubkey_available:
             assert self.remote_pubkey == remote_pubkey
-        else:
-            self.remote_pubkey = remote_pubkey
 
         # enable backwards compatibility for legacy peers
         if version < 5:
@@ -128,6 +125,9 @@ class Peer(gevent.Greenlet):
             proto, version, client_version_string, capabilities, listen_port, remote_pubkey)
         if not agree:
             return
+
+        self.remote_client_version = client_version_string
+        self.remote_pubkey = remote_pubkey
 
         # register in common protocols
         log.debug('connecting services', services=self.peermanager.wired_services)
