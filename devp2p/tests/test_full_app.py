@@ -130,6 +130,7 @@ class ExampleServiceAppRestart(ExampleService):
                 self.testdriver.TEST_SUCCESSFUL = True
             else:
                 self.app.stop()
+                gevent.sleep(1)
                 self.app.start()
                 self.testdriver.APP_RESTARTED = True
 
