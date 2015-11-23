@@ -212,6 +212,11 @@ class PeerManager(WiredService):
 
 
 class PeerErrorsBase(object):
+    def add(self, address, error, client_version=''):
+        pass
+
+
+class PeerErrors(PeerErrorsBase):
     def __init__(self):
         self.errors = dict()  # node: ['error',]
         self.client_versions = dict()  # address: client_version
@@ -224,11 +229,6 @@ class PeerErrorsBase(object):
 
         atexit.register(report)
 
-    def add(self, address, error, client_version=''):
-        pass
-
-
-class PeerErrors(PeerErrorsBase):
     def add(self, address, error, client_version=''):
         self.errors.setdefault(address, []).append(error)
         if client_version:
