@@ -42,6 +42,7 @@ class PeerManager(WiredService):
                                    max_peers=10,
                                    listen_port=30303,
                                    listen_host='0.0.0.0'),
+                          log_disconnects=False,
                           node=dict(privkey_hex=''))
 
     connect_timeout = 2.
@@ -50,9 +51,9 @@ class PeerManager(WiredService):
 
     def __init__(self, app):
         log.info('PeerManager init')
-        self.peers = []
-        self.errors = PeerErrors()
         WiredService.__init__(self, app)
+        self.peers = []
+        self.errors = PeerErrors() if self.config['log_disconnects'] else PeerErrorsBase()
 
         # setup nodeid based on privkey
         if 'id' not in self.config['p2p']:
@@ -210,8 +211,12 @@ class PeerManager(WiredService):
         super(PeerManager, self).stop()
 
 
-class PeerErrors(object):
+class PeerErrorsBase(object):
+    def add(self, address, error, client_version=''):
+        pass
 
+
+class PeerErrors(PeerErrorsBase):
     def __init__(self):
         self.errors = dict()  # node: ['error',]
         self.client_versions = dict()  # address: client_version
