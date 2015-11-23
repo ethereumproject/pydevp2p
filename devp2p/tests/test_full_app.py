@@ -180,5 +180,4 @@ if __name__ == "__main__":
     log = slogging.get_logger('app')
     TestFullApp().test_inc_counter_app(3)
     TestFullApp().test_inc_counter_app(6)
-    PeerManager.log_disconnects = True
     test_app_restart()
