@@ -47,11 +47,12 @@ class PeerManager(WiredService):
     connect_timeout = 2.
     connect_loop_delay = 0.1
     discovery_delay = 0.5
+    log_disconnects = False
 
     def __init__(self, app):
         log.info('PeerManager init')
         self.peers = []
-        self.errors = PeerErrors()
+        self.errors = PeerErrors() if self.log_disconnects else PeerErrorsBase()
         WiredService.__init__(self, app)
 
         # setup nodeid based on privkey
@@ -210,8 +211,7 @@ class PeerManager(WiredService):
         super(PeerManager, self).stop()
 
 
-class PeerErrors(object):
-
+class PeerErrorsBase(object):
     def __init__(self):
         self.errors = dict()  # node: ['error',]
         self.client_versions = dict()  # address: client_version
@@ -224,6 +224,11 @@ class PeerErrors(object):
 
         atexit.register(report)
 
+    def add(self, address, error, client_version=''):
+        pass
+
+
+class PeerErrors(PeerErrorsBase):
     def add(self, address, error, client_version=''):
         self.errors.setdefault(address, []).append(error)
         if client_version:
