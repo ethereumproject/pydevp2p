@@ -29,6 +29,9 @@ sha3_256 = lambda x: keccak.new(digest_bits=256, data=x)
 from hashlib import sha256
 import struct
 try:
+    if '__pypy__' in sys.builtin_module_names:
+        warnings.warn('c_secp256k1 not yet supported for pypy, fallback to bitcointools')
+        raise ImportError
     from c_secp256k1 import ecdsa_sign_raw, ecdsa_recover_raw, ecdsa_verify_raw
 except ImportError:
     warnings.warn('could not import c_secp256k1, fallback to bitcointools')
