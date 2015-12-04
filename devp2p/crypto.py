@@ -24,14 +24,17 @@ if 'pyelliptic' not in dir() or not CIPHERNAMES.issubset(set(pyelliptic.Cipher.g
     sys.exit(1)
 
 import bitcoin
-from sha3 import sha3_256
+from Crypto.Hash import keccak
+sha3_256 = lambda x: keccak.new(digest_bits=256, data=x)
 from hashlib import sha256
 import struct
 try:
-    from c_secp256k1 import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
+    from c_secp256k1 import ecdsa_sign_raw, ecdsa_recover_raw, ecdsa_verify_raw
 except ImportError:
     warnings.warn('could not import c_secp256k1, fallback to bitcointools')
-    from bitcoin import ecdsa_raw_sign, ecdsa_raw_recover, ecdsa_raw_verify
+    from bitcoin import ecdsa_raw_sign as ecdsa_sign_raw
+    from bitcoin import ecdsa_raw_recover as ecdsa_recover_raw
+    from bitcoin import ecdsa_raw_verify as ecdsa_verify_raw
 
 
 hmac_sha256 = pyelliptic.hmac_sha256
@@ -236,13 +239,13 @@ def _decode_sig(sig):
 def ecdsa_verify(pubkey, signature, message):
     assert len(signature) == 65
     assert len(pubkey) == 64
-    return ecdsa_raw_verify(message, _decode_sig(signature), pubkey)
+    return ecdsa_verify_raw(message, _decode_sig(signature), pubkey)
 verify = ecdsa_verify
 
 
 def ecdsa_sign(msghash, privkey):
     assert len(msghash) == 32
-    s = _encode_sig(*ecdsa_raw_sign(msghash, privkey))
+    s = _encode_sig(*ecdsa_sign_raw(msghash, privkey))
     return s
 
 sign = ecdsa_sign
@@ -250,7 +253,7 @@ sign = ecdsa_sign
 
 def ecdsa_recover(message, signature):
     assert len(signature) == 65
-    pub = ecdsa_raw_recover(message, _decode_sig(signature))
+    pub = ecdsa_recover_raw(message, _decode_sig(signature))
     assert pub, 'pubkey could not be recovered'
     pub = bitcoin.encode_pubkey(pub, 'bin_electrum')
     assert len(pub) == 64

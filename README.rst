@@ -42,6 +42,13 @@ Full spec:
 
 * https://github.com/ethereum/devp2p/blob/master/rlpx.md
 
+Dependencies
+------------
+
+On Ubuntu::
+
+    $ sudo apt-get install libssl-dev libffi-dev libtool
+
 Features
 --------
 * Node Discovery and Network Formation

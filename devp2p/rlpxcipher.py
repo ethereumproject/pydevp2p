@@ -2,7 +2,8 @@
 import random
 import struct
 from devp2p.crypto import sha3
-from sha3 import sha3_256
+from Crypto.Hash import keccak
+sha3_256 = lambda x: keccak.new(digest_bits=256, update_after_digest=True, data=x)
 from devp2p.crypto import ECCx
 from devp2p.crypto import ecdsa_recover
 from devp2p.crypto import ecdsa_verify
