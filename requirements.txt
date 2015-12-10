@@ -8,4 +8,4 @@ coverage
 tox
 c_secp256k1>=0.0.7
 pycryptodome>=3.3.1
-https://github.com/ethereum/pyrlp/tarball/develop
+rlp==0.4.4

@@ -31,8 +31,7 @@ readme = open('README.rst').read()
 history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 install_requires = set(x.strip() for x in open('requirements.txt'))
-install_requires_replacements = {
-    'https://github.com/ethereum/pyrlp/tarball/develop': 'rlp>=0.3.9'}
+install_requires_replacements = {}
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
 test_requirements = [
