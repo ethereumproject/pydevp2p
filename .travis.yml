@@ -19,3 +19,14 @@ script:
 
 after_success:
   - coveralls
+
+deploy:
+  provider: pypi
+  user: ethereum_pypi_automated
+  password:
+    secure: "CoLY2r4vgY1kvJdd824hpEjmkxzs9uf2lapQNUaGB3sRytOLRAF3cfA924WFeKwp1ZVsXwKEp0ZvoLQ26JB2JqThrP7vjR24tSSN+tTkBL9h4eoHCA+W3CX+FFFHMxL6t9VCYjXHQvk/cm3zubVx/e4x1pi4WFlJCYgXY5nnStI="
+  on:
+    tags: true
+    repo: ethereum/pydevp2p
+    branch: develop
+  distributions: "sdist bdist_wheel"
