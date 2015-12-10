@@ -41,9 +41,13 @@ test_requirements = [
     'pytest-timeout==0.5'
 ]
 
+# *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
+# see: https://github.com/ethereum/pyethapp/wiki/Development:-Versions-and-Releases
+version = '0.6.0'
+
 setup(
     name='devp2p',
-    version='0.6.0',
+    version=version,
     description='Python implementation of the Ethereum P2P stack',
     long_description=readme + '\n\n' + history,
     author='HeikoHeiko',
