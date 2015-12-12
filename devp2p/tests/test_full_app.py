@@ -1,10 +1,48 @@
 import pytest
 import os
 import time
+import copy
 from devp2p import app_helper
 from devp2p.peermanager import PeerManager
 from devp2p.examples.full_app import Token, ExampleService, ExampleProtocol, ExampleApp
 import gevent
+
+
+def create_app_mock(node_num, config, services, app_class):
+    num_nodes = config['num_nodes']
+    assert node_num < num_nodes
+    base_port = config['base_port']
+    seed = config['seed']
+    min_peers = config['min_peers']
+    max_peers = config['max_peers']
+    # node cannot be connected to self and
+    # node cannot be connected twice to the same node
+    # assert min_peers <= max_peers < num_nodes
+
+    config = copy.deepcopy(config)
+    config['node_num'] = node_num
+
+    # create this node priv_key
+    config['node']['privkey_hex'] =\
+        app_helper.mk_privkey('%d:udp:%d' % (seed, node_num)).encode('hex')
+    # set ports based on node
+    config['discovery']['listen_port'] = base_port + node_num
+    config['p2p']['listen_port'] = base_port + node_num
+    config['p2p']['min_peers'] = min(10, min_peers)
+    config['p2p']['max_peers'] = max_peers
+    config['client_version_string'] = 'NODE{}'.format(node_num)
+
+    app = app_class(config)
+
+    # register services
+    for service in services:
+        assert issubclass(service, app_helper.BaseService)
+        if service.name not in app.config['deactivated_services']:
+            assert service.name not in app.services
+            service.register_with_app(app)
+            assert hasattr(app.services, service.name)
+
+    return app
 
 
 class ExampleServiceIncCounter(ExampleService):
@@ -141,6 +179,16 @@ class ExampleServiceAppRestart(ExampleService):
         gevent.spawn_later(0.5, self.tick)
 
 
+class ExampleServiceAppDisconnect(ExampleService):
+    def __init__(self, app):
+        super(ExampleServiceAppDisconnect, self).__init__(app)
+        gevent.spawn_later(self.testdriver.DISCOVERY_LOOP_SEC, self.assert_num_peers)
+
+    def assert_num_peers(self):
+        assert self.app.services.peermanager.num_peers() <= self.testdriver.MIN_PEERS
+        self.app.stop()
+
+
 @pytest.mark.parametrize('num_nodes', [3, 6])
 class TestFullApp:
     @pytest.mark.timeout(30)
@@ -175,6 +223,26 @@ def test_app_restart():
                    num_nodes=3, min_peers=2, max_peers=2)
 
 
+@pytest.mark.timeout(15)
+def test_disconnect():
+    """
+    Test scenario:
+    - Run app with min_peers < max_peers to force lots of peer.stop() (too many peers)
+    - After X seconds of unsuccessful (by definition) discovery check that len(peers) <= min_peers
+    """
+
+    class TestDriver(object):
+        DISCOVERY_LOOP_SEC = 10
+        MIN_PEERS = 2
+
+    ExampleServiceAppDisconnect.testdriver = TestDriver()
+
+    app_helper.create_app = create_app_mock
+
+    app_helper.run(ExampleApp, ExampleServiceAppDisconnect,
+                   num_nodes=3, min_peers=2, max_peers=1)
+
+
 if __name__ == "__main__":
     import devp2p.slogging as slogging
     slogging.configure(config_string=':debug,p2p:info')
@@ -182,3 +250,4 @@ if __name__ == "__main__":
     TestFullApp().test_inc_counter_app(3)
     TestFullApp().test_inc_counter_app(6)
     test_app_restart()
+    test_disconnect()

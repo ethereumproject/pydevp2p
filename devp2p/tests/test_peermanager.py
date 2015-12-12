@@ -30,6 +30,7 @@ def test_app_restart():
         a_app.start()
         assert a_app.services.peermanager.server.started
         try_tcp_connect((host, port))
+        assert a_app.services.peermanager.num_peers() == 0
         a_app.stop()
         assert a_app.services.peermanager.is_stopped
 
@@ -46,5 +47,4 @@ if __name__ == '__main__':
     # ethereum -loglevel 5 --bootnodes ''
     import ethereum.slogging
     ethereum.slogging.configure(config_string=':debug')
-    # connect_go()
     test_app_restart()
