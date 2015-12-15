@@ -86,7 +86,7 @@ def test_big_transfer():
 
 def test_dumb_peer():
     """ monkeypatch receive_hello to make peer not to mark that hello was received.
-    no hello in defined timeframe force peer to stop """
+    no hello in defined timeframe makes peer to stop """
 
     def mock_receive_hello(self, proto, version, client_version_string,
                            capabilities, listen_port, remote_pubkey):
@@ -95,8 +95,12 @@ def test_dumb_peer():
     peer.Peer.receive_hello = mock_receive_hello
 
     a_app, b_app = get_connected_apps()
-    gevent.sleep(peer.Peer.dumb_remote_timeout + 1)
 
+    gevent.sleep(1.0)
+    assert a_app.services.peermanager.num_peers() == 1
+    assert b_app.services.peermanager.num_peers() == 1
+
+    gevent.sleep(peer.Peer.dumb_remote_timeout)
     assert a_app.services.peermanager.num_peers() == 0
     assert b_app.services.peermanager.num_peers() == 0
 
