@@ -2,47 +2,12 @@ import pytest
 import os
 import time
 import copy
+import inspect
 from devp2p import app_helper
+from devp2p.app_helper import mk_privkey
 from devp2p.peermanager import PeerManager
 from devp2p.examples.full_app import Token, ExampleService, ExampleProtocol, ExampleApp
 import gevent
-
-
-def create_app_mock(node_num, config, services, app_class):
-    num_nodes = config['num_nodes']
-    assert node_num < num_nodes
-    base_port = config['base_port']
-    seed = config['seed']
-    min_peers = config['min_peers']
-    max_peers = config['max_peers']
-    # node cannot be connected to self and
-    # node cannot be connected twice to the same node
-    # assert min_peers <= max_peers < num_nodes
-
-    config = copy.deepcopy(config)
-    config['node_num'] = node_num
-
-    # create this node priv_key
-    config['node']['privkey_hex'] =\
-        app_helper.mk_privkey('%d:udp:%d' % (seed, node_num)).encode('hex')
-    # set ports based on node
-    config['discovery']['listen_port'] = base_port + node_num
-    config['p2p']['listen_port'] = base_port + node_num
-    config['p2p']['min_peers'] = min(10, min_peers)
-    config['p2p']['max_peers'] = max_peers
-    config['client_version_string'] = 'NODE{}'.format(node_num)
-
-    app = app_class(config)
-
-    # register services
-    for service in services:
-        assert issubclass(service, app_helper.BaseService)
-        if service.name not in app.config['deactivated_services']:
-            assert service.name not in app.services
-            service.register_with_app(app)
-            assert hasattr(app.services, service.name)
-
-    return app
 
 
 class ExampleServiceIncCounter(ExampleService):
@@ -237,7 +202,13 @@ def test_disconnect():
 
     ExampleServiceAppDisconnect.testdriver = TestDriver()
 
-    app_helper.create_app = create_app_mock
+    # remove asserts from app_helper.create_app function
+    source = inspect.getsourcelines(app_helper.create_app)[0]
+    source_no_asserts = ''.join([line for line in source if 'assert ' not in line])
+    mock_source = source_no_asserts.replace('def create_app', 'def mock_create_app')
+    exec(mock_source)
+
+    app_helper.create_app = mock_create_app
 
     app_helper.run(ExampleApp, ExampleServiceAppDisconnect,
                    num_nodes=3, min_peers=2, max_peers=1)
