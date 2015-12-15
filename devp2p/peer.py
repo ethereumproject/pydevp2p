@@ -26,10 +26,12 @@ class Peer(gevent.Greenlet):
     remote_client_version = ''
     offset_based_dispatch = False
     wait_read_timeout = 0.001
+    dumb_remote_timeout = 10.0
 
     def __init__(self, peermanager, connection, remote_pubkey=None):
         super(Peer, self).__init__()
         self.is_stopped = False
+        self.hello_received = False
         self.peermanager = peermanager
         self.connection = connection
         self.config = peermanager.config
@@ -50,6 +52,9 @@ class Peer(gevent.Greenlet):
         # assure, we don't get messages while replies are not read
         self.safe_to_read = gevent.event.Event()
         self.safe_to_read.set()
+
+        # Stop peer if hello not received in self.dumb_remote_timeout seconds
+        gevent.spawn_later(self.dumb_remote_timeout, self.check_if_dumb_remote)
 
     @property
     def remote_pubkey(self):
@@ -114,6 +119,7 @@ class Peer(gevent.Greenlet):
         assert len(remote_pubkey) == 64
         if self.remote_pubkey_available:
             assert self.remote_pubkey == remote_pubkey
+        self.hello_received = True
 
         # enable backwards compatibility for legacy peers
         if version < 5:
@@ -278,3 +284,9 @@ class Peer(gevent.Greenlet):
                 p.stop()
             self.peermanager.peers.remove(self)
             self.kill()
+
+    def check_if_dumb_remote(self):
+        "Stop peer if hello not received"
+        if not self.hello_received:
+            self.report_error('No hello in {} seconds'.format(self.dumb_remote_timeout))
+            self.stop()

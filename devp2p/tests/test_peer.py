@@ -1,4 +1,4 @@
-from devp2p import peermanager
+from devp2p import peermanager, peer
 from devp2p import crypto
 from devp2p.app import BaseApp
 import devp2p.muxsession
@@ -84,6 +84,31 @@ def test_big_transfer():
     gevent.sleep(0.1)
 
 
+def test_dumb_peer():
+    """ monkeypatch receive_hello to make peer not to mark that hello was received.
+    no hello in defined timeframe makes peer to stop """
+
+    def mock_receive_hello(self, proto, version, client_version_string,
+                           capabilities, listen_port, remote_pubkey):
+        pass
+
+    peer.Peer.receive_hello = mock_receive_hello
+
+    a_app, b_app = get_connected_apps()
+
+    gevent.sleep(1.0)
+    assert a_app.services.peermanager.num_peers() == 1
+    assert b_app.services.peermanager.num_peers() == 1
+
+    gevent.sleep(peer.Peer.dumb_remote_timeout)
+    assert a_app.services.peermanager.num_peers() == 0
+    assert b_app.services.peermanager.num_peers() == 0
+
+    a_app.stop()
+    b_app.stop()
+    gevent.sleep(0.1)
+
+
 def connect_go():
     a_config = dict(p2p=dict(listen_host='127.0.0.1', listen_port=3000),
                     node=dict(privkey_hex=crypto.sha3('a').encode('hex')))
@@ -108,3 +133,4 @@ if __name__ == '__main__':
     ethereum.slogging.configure(config_string=':debug')
     # connect_go()
     test_big_transfer()
+    test_dumb_peer()
