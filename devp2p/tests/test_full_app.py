@@ -192,7 +192,7 @@ def test_app_restart():
 def test_disconnect():
     """
     Test scenario:
-    - Run app with min_peers < max_peers to force lots of peer.stop() (too many peers)
+    - Run app with min_peers > max_peers to force lots of peer.stop() (too many peers)
     - After X seconds of unsuccessful (by definition) discovery check that len(peers) <= min_peers
     """
 
@@ -202,7 +202,10 @@ def test_disconnect():
 
     ExampleServiceAppDisconnect.testdriver = TestDriver()
 
-    # remove asserts from app_helper.create_app function
+    # To be able to run app with min_peers > max_peers one has to bypass asserts.
+    # To do that get source of app_helper.create_app function as string
+    # and filter out lines containing 'assert'. Then change the name of function
+    # and execute it to use as monkeypatch.
     source = inspect.getsourcelines(app_helper.create_app)[0]
     source_no_asserts = ''.join([line for line in source if 'assert ' not in line])
     mock_source = source_no_asserts.replace('def create_app', 'def mock_create_app')
