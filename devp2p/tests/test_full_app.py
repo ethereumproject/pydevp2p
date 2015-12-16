@@ -1,7 +1,10 @@
 import pytest
 import os
 import time
+import copy
+import inspect
 from devp2p import app_helper
+from devp2p.app_helper import mk_privkey
 from devp2p.peermanager import PeerManager
 from devp2p.examples.full_app import Token, ExampleService, ExampleProtocol, ExampleApp
 import gevent
@@ -141,6 +144,16 @@ class ExampleServiceAppRestart(ExampleService):
         gevent.spawn_later(0.5, self.tick)
 
 
+class ExampleServiceAppDisconnect(ExampleService):
+    def __init__(self, app):
+        super(ExampleServiceAppDisconnect, self).__init__(app)
+        gevent.spawn_later(self.testdriver.DISCOVERY_LOOP_SEC, self.assert_num_peers)
+
+    def assert_num_peers(self):
+        assert self.app.services.peermanager.num_peers() <= self.testdriver.MIN_PEERS
+        self.app.stop()
+
+
 @pytest.mark.parametrize('num_nodes', [3, 6])
 class TestFullApp:
     @pytest.mark.timeout(30)
@@ -175,6 +188,27 @@ def test_app_restart():
                    num_nodes=3, min_peers=2, max_peers=2)
 
 
+@pytest.mark.timeout(15)
+def test_disconnect():
+    """
+    Test scenario:
+    - Run app with min_peers > max_peers to force lots of peer.stop() (too many peers)
+    - After X seconds of unsuccessful (by definition) discovery check that len(peers) <= min_peers
+    """
+
+    class TestDriver(object):
+        DISCOVERY_LOOP_SEC = 10
+        MIN_PEERS = 2
+
+    ExampleServiceAppDisconnect.testdriver = TestDriver()
+
+    # To be able to run app with min_peers > max_peers one has to bypass asserts.
+    app_helper.assert_config = lambda a, b, c, d: True
+
+    app_helper.run(ExampleApp, ExampleServiceAppDisconnect,
+                   num_nodes=3, min_peers=2, max_peers=1)
+
+
 if __name__ == "__main__":
     import devp2p.slogging as slogging
     slogging.configure(config_string=':debug,p2p:info')
@@ -182,3 +216,4 @@ if __name__ == "__main__":
     TestFullApp().test_inc_counter_app(3)
     TestFullApp().test_inc_counter_app(6)
     test_app_restart()
+    test_disconnect()

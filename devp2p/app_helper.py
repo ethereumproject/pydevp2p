@@ -18,17 +18,22 @@ def mk_privkey(seed):
     return sha3(seed)
 
 
-def create_app(node_num, config, services, app_class):
-    num_nodes = config['num_nodes']
+def assert_config(node_num, num_nodes, min_peers, max_peers):
+    # node number cannot be greater than total number of nodes
     assert node_num < num_nodes
-    base_port = config['base_port']
-    seed = config['seed']
-    min_peers = config['min_peers']
-    max_peers = config['max_peers']
     # node cannot be connected to self and
     # node cannot be connected twice to the same node
     assert min_peers <= max_peers < num_nodes
 
+
+def create_app(node_num, config, services, app_class):
+    num_nodes = config['num_nodes']
+    base_port = config['base_port']
+    seed = config['seed']
+    min_peers = config['min_peers']
+    max_peers = config['max_peers']
+
+    assert_config(node_num, num_nodes, min_peers, max_peers)
     config = copy.deepcopy(config)
     config['node_num'] = node_num
 
