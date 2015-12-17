@@ -1,5 +1,4 @@
 import sys
-import time
 import random
 from devp2p.app import BaseApp
 from devp2p.protocol import BaseProtocol
@@ -45,7 +44,7 @@ class Token(rlp.Serializable):
 class ExampleProtocol(BaseProtocol):
     protocol_id = 1
     network_id = 0
-    max_cmd_id = 15  # FIXME
+    max_cmd_id = 1  # Actually max id is 0, but 0 is the special value.
     name = 'example'
     version = 1
 
@@ -60,7 +59,6 @@ class ExampleProtocol(BaseProtocol):
         message sending a token and a nonce
         """
         cmd_id = 0
-        sent = False
 
         structure = [
             ('token', Token)

@@ -1,17 +1,10 @@
-import time
 from devp2p import peermanager
-from devp2p.app import BaseApp
-from devp2p.protocol import BaseProtocol, SubProtocolError
 from devp2p.service import BaseService
 from devp2p.discovery import NodeDiscovery
 from devp2p.crypto import privtopub as privtopub_raw, sha3
-from devp2p.utils import host_port_pubkey_to_uri, update_config_with_defaults, colors
-import rlp
+from devp2p.utils import host_port_pubkey_to_uri, update_config_with_defaults
 import gevent
-from gevent.event import Event
-import signal
 import copy
-import sys
 
 
 def mk_privkey(seed):
