@@ -21,8 +21,7 @@ def test_session():
     hello_packet = proto.create_hello()
 
     responder_privkey = mk_privkey('secret1')
-    responder = MultiplexedSession(responder_privkey, hello_packet=hello_packet,
-                                   token_by_pubkey=dict())
+    responder = MultiplexedSession(responder_privkey, hello_packet=hello_packet)
     p0 = 0
     responder.add_protocol(p0)
 
@@ -34,7 +33,6 @@ def test_session():
     # send auth
     msg = initiator.message_queue.get_nowait()
     assert msg  # auth_init
-    assert len(msg) == RLPxSession.auth_message_ct_length
     assert initiator.packet_queue.empty()
     assert not responder.is_initiator
 
@@ -45,7 +43,6 @@ def test_session():
 
     # send auth ack and hello
     ack_msg = responder.message_queue.get_nowait()
-    assert len(msg) >= RLPxSession.auth_ack_message_ct_length  # + hello
     hello_msg = responder.message_queue.get_nowait()
     assert hello_msg
 

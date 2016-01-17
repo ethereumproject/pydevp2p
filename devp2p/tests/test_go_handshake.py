@@ -86,8 +86,7 @@ def test_handshake():
 
     # test auth_msg plain
     auth_msg = initiator.create_auth_message(remote_pubkey=responder_pubkey,
-                                             ephemeral_privkey=tv[
-                                                 'initiator_ephemeral_private_key'],
+                                             ephemeral_privkey=tv['initiator_ephemeral_private_key'],
                                              nonce=tv['initiator_nonce'])
 
     # test auth_msg plain
@@ -110,12 +109,9 @@ def test_handshake():
     assert auth_msg[65:] == tv['auth_plaintext'][65:]  # starts with non deterministic k
 
     responder.decode_authentication(auth_msg_cipher)
-    auth_ack_msg = responder.create_auth_ack_message(responder_ephemeral_pubkey,
-                                                     tv['receiver_nonce'],
-                                                     responder.remote_token_found
-                                                     )
+    auth_ack_msg = responder.create_auth_ack_message(responder_ephemeral_pubkey, nonce=tv['receiver_nonce'])
     assert auth_ack_msg == tv['authresp_plaintext']
-    auth_ack_msg_cipher = responder.encrypt_auth_ack_message(auth_ack_msg, responder.remote_pubkey)
+    auth_ack_msg_cipher = responder.encrypt_auth_ack_message(auth_ack_msg, remote_pubkey=responder.remote_pubkey)
 
     # set auth ack msg cipher (needed later for mac calculation)
     responder.auth_ack = tv['authresp_ciphertext']
