@@ -1,6 +1,7 @@
 from devp2p.p2p_protocol import P2PProtocol
 from devp2p.service import WiredService
 from devp2p.app import BaseApp
+from devp2p.multiplexer import Packet
 import pytest
 # notify peer of successfulll handshake!
 # so other protocols get registered
@@ -14,6 +15,9 @@ class PeerMock(object):
     capabilities = [('p2p', 2), ('eth', 57)]
     stopped = False
     hello_received = False
+    remote_client_version = ''
+    remote_pubkey = ''
+    remote_hello_version = 0
 
     def receive_hello(self, proto, version, client_version_string, capabilities,
                       listen_port, remote_pubkey):
@@ -21,6 +25,9 @@ class PeerMock(object):
             assert isinstance(name, str)
             assert isinstance(version, int)
         self.hello_received = True
+        self.remote_client_version = client_version_string
+        self.remote_pubkey = remote_pubkey
+        self.remote_hello_version = version
 
     def send_packet(self, packet):
         print 'sending', packet
@@ -71,6 +78,23 @@ def test_protocol():
     assert peer.stopped
 
 
+eip8_hello = '''
+    f87137916b6e6574682f76302e39312f706c616e39cdc5836574683dc6846d6f726b1682270fb840
+    fda1cff674c90c9a197539fe3dfb53086ace64f83ed7c6eabec741f7f381cc803e52ab2cd55d5569
+    bce4347107a310dfd5f88a010cd2ffd1005ca406f1842877c883666f6f836261720304
+'''.translate(None, ' \t\n').decode('hex')
+    
+def test_eip8_hello():
+    peer = PeerMock()
+    proto = P2PProtocol(peer, WiredService(BaseApp()))
+    test_packet = Packet(cmd_id=1, payload=eip8_hello)
+    proto._receive_hello(test_packet)
+    assert peer.hello_received
+    assert peer.remote_client_version == "kneth/v0.91/plan9"
+    assert peer.remote_hello_version == 22
+    assert peer.remote_pubkey == 'fda1cff674c90c9a197539fe3dfb53086ace64f83ed7c6eabec741f7f381cc803e52ab2cd55d5569bce4347107a310dfd5f88a010cd2ffd1005ca406f1842877'.decode('hex')
+
+    
 def test_callback():
     peer = PeerMock()
     proto = P2PProtocol(peer, WiredService(BaseApp()))
