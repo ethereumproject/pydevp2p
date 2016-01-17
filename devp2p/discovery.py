@@ -193,6 +193,10 @@ class DiscoveryProtocol(kademlia.WireInterface):
     cmd_id_map = dict(ping=1, pong=2, find_node=3, neighbours=4)
     rev_cmd_id_map = dict((v, k) for k, v in cmd_id_map.items())
 
+    # number of required top-level list elements for each cmd_id.
+    # elements beyond this length are trimmed.
+    cmd_elem_count_map = dict(ping=4, pong=3, find_node=2, neighbours=2)
+
     encoders = dict(cmd_id=chr,
                     expiration=rlp.sedes.big_endian_int.serialize)
 
@@ -300,12 +304,11 @@ class DiscoveryProtocol(kademlia.WireInterface):
         # if not crypto.verify(remote_pubkey, signature, signed_data):
         #     raise InvalidSignature()
         cmd_id = self.decoders['cmd_id'](message[97])
-        assert cmd_id in self.cmd_id_map.values()
-        payload = rlp.decode(message[98:])
+        cmd = self.rev_cmd_id_map[cmd_id]
+        payload = rlp.decode(message[98:], strict=False)
         assert isinstance(payload, list)
-        expiration = self.decoders['expiration'](payload.pop())
-        if time.time() > expiration:
-            raise PacketExpired()
+        # ignore excessive list elements as required by EIP-8.
+        payload = payload[:self.cmd_elem_count_map.get(cmd, len(payload))]
         return remote_pubkey, cmd_id, payload, mdc
 
     def receive(self, address, message):
@@ -313,6 +316,12 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert isinstance(address, Address)
         try:
             remote_pubkey, cmd_id, payload, mdc = self.unpack(message)
+            # Note: as of discovery version 4, expiration is the last element for all
+            # packets. This might not be the case for a later version, but just popping
+            # the last element is good enough for now.
+            expiration = self.decoders['expiration'](payload.pop())
+            if time.time() > expiration:
+                raise PacketExpired()
         except DefectiveMessage:
             return
         cmd = getattr(self, 'recv_' + self.rev_cmd_id_map[cmd_id])
@@ -376,10 +385,6 @@ class DiscoveryProtocol(kademlia.WireInterface):
             return
         node = self.get_node(nodeid)
         log.debug('<<< ping', node=node)
-        version = rlp.sedes.big_endian_int.deserialize(payload[0])
-        if version != self.version:
-            log.error('wrong version', remote_version=version, expected_version=self.version)
-            return
         remote_address = Address.from_endpoint(*payload[1])  # from address
         my_address = Address.from_endpoint(*payload[2])  # my address
         self.get_node(nodeid).address.update(remote_address)
