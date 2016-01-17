@@ -34,7 +34,7 @@ from secp256k1 import PrivateKey, PublicKey, ALL_FLAGS
 hmac_sha256 = pyelliptic.hmac_sha256
 
 
-class ECIESDecryptionError(Exception):
+class ECIESDecryptionError(RuntimeError):
     pass
 
 
