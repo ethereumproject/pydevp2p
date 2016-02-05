@@ -28,16 +28,7 @@ from Crypto.Hash import keccak
 sha3_256 = lambda x: keccak.new(digest_bits=256, data=x)
 from hashlib import sha256
 import struct
-try:
-    if '__pypy__' in sys.builtin_module_names:
-        warnings.warn('c_secp256k1 not yet supported for pypy, fallback to bitcointools')
-        raise ImportError
-    from c_secp256k1 import ecdsa_sign_raw, ecdsa_recover_raw, ecdsa_verify_raw
-except ImportError:
-    warnings.warn('could not import c_secp256k1, fallback to bitcointools')
-    from bitcoin import ecdsa_raw_sign as ecdsa_sign_raw
-    from bitcoin import ecdsa_raw_recover as ecdsa_recover_raw
-    from bitcoin import ecdsa_raw_verify as ecdsa_verify_raw
+from secp256k1 import PrivateKey, PublicKey, ALL_FLAGS
 
 
 hmac_sha256 = pyelliptic.hmac_sha256
@@ -242,25 +233,41 @@ def _decode_sig(sig):
 def ecdsa_verify(pubkey, signature, message):
     assert len(signature) == 65
     assert len(pubkey) == 64
-    return ecdsa_verify_raw(message, _decode_sig(signature), pubkey)
+    pk = PublicKey('\04' + pubkey, raw=True)
+    return pk.ecdsa_verify(
+        message,
+        pk.ecdsa_recoverable_convert(
+            pk.ecdsa_recoverable_deserialize(
+                signature[:64],
+                ord(signature[64]))),
+        raw=True
+    )
 verify = ecdsa_verify
 
 
 def ecdsa_sign(msghash, privkey):
     assert len(msghash) == 32
-    s = _encode_sig(*ecdsa_sign_raw(msghash, privkey))
-    return s
+    pk = PrivateKey(privkey, raw=True)
+    signature = pk.ecdsa_recoverable_serialize(
+        pk.ecdsa_sign_recoverable(
+            msghash, raw=True))
+    new = signature[0] + chr(signature[1])
+    return new
 
 sign = ecdsa_sign
 
 
 def ecdsa_recover(message, signature):
     assert len(signature) == 65
-    pub = ecdsa_recover_raw(message, _decode_sig(signature))
-    assert pub, 'pubkey could not be recovered'
-    pub = bitcoin.encode_pubkey(pub, 'bin_electrum')
-    assert len(pub) == 64
-    return pub
+    pk = PublicKey(flags=ALL_FLAGS)
+    pk.public_key = pk.ecdsa_recover(
+        message,
+        pk.ecdsa_recoverable_deserialize(
+            signature[:64],
+            ord(signature[64])),
+        raw=True
+    )
+    return pk.serialize(compressed=False)[1:]
 recover = ecdsa_recover
 
 
