@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from devp2p import crypto
 import random
+import pytest
 
 
 def get_ecc(secret=''):
@@ -74,6 +75,19 @@ def test_en_decrypt():
     msg = 'test'
     ciphertext = alice.encrypt(msg, bob.raw_pubkey)
     assert bob.decrypt(ciphertext) == msg
+
+
+def test_en_decrypt_shared_mac_data():
+    alice, bob = crypto.ECCx(), crypto.ECCx()
+    ciphertext = alice.encrypt('test', bob.raw_pubkey, shared_mac_data='shared mac data')
+    assert bob.decrypt(ciphertext, shared_mac_data='shared mac data') == 'test'
+
+
+@pytest.mark.xfail(raises=crypto.ECIESDecryptionError)
+def test_en_decrypt_shared_mac_data_fail():
+    alice, bob = crypto.ECCx(), crypto.ECCx()
+    ciphertext = alice.encrypt('test', bob.raw_pubkey, shared_mac_data='shared mac data')
+    bob.decrypt(ciphertext, shared_mac_data='wrong')
 
 
 def test_privtopub():

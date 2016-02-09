@@ -104,7 +104,7 @@ class ECCx(pyelliptic.ECC):
         return not failed
 
     @classmethod
-    def ecies_encrypt(cls, data, raw_pubkey):
+    def ecies_encrypt(cls, data, raw_pubkey, shared_mac_data=''):
         """
         ECIES Encrypt, where P = recipient public key is:
         1) generate r = random value
@@ -149,7 +149,7 @@ class ECCx(pyelliptic.ECC):
         msg = chr(0x04) + ephem_pubkey + iv + ciphertext
 
         # the MAC of a message (called the tag) as per SEC 1, 3.5.
-        tag = hmac_sha256(key_mac, msg[1 + 64:])
+        tag = hmac_sha256(key_mac, msg[1 + 64:] + shared_mac_data)
         assert len(tag) == 32
         msg += tag
 
@@ -157,7 +157,7 @@ class ECCx(pyelliptic.ECC):
         assert len(msg) - cls.ecies_encrypt_overhead_length == len(data)
         return msg
 
-    def ecies_decrypt(self, data):
+    def ecies_decrypt(self, data, shared_mac_data=''):
         """
         Decrypt data with ECIES method using the local private key
 
@@ -190,7 +190,7 @@ class ECCx(pyelliptic.ECC):
         assert len(tag) == 32
 
         # 2) verify tag
-        if not pyelliptic.equals(hmac_sha256(key_mac, data[1 + 64:- 32]), tag):
+        if not pyelliptic.equals(hmac_sha256(key_mac, data[1 + 64:- 32] + shared_mac_data), tag):
             raise ECIESDecryptionError("Fail to verify data")
 
         # 3) decrypt
