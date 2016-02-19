@@ -17,7 +17,7 @@ def try_tcp_connect(addr):
 
 
 def test_app_restart():
-    host, port = '127.0.0.1', 3000
+    host, port = '127.0.0.1', 3020
 
     a_config = dict(p2p=dict(listen_host=host, listen_port=port),
                     node=dict(privkey_hex=crypto.sha3('a').encode('hex')))

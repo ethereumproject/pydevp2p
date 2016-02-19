@@ -1,21 +1,37 @@
-# Config file for automatic testing at travis-ci.org
-
 language: python
 
 python:
-  #- "3.4"
   - "2.7"
-  #- "pypy"
+  #- "3.4"
+  - "pypy"
   #- "pypy3"
 
-# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install:
- - pip install -r requirements.txt
- - pip install coveralls
+cache:
+  directories:
+    - $HOME/.cache/pip
 
-# command to run tests, e.g. python setup.py test
+install:
+  - |
+      if [ "$TRAVIS_PYTHON_VERSION" = "pypy" ]; then
+        export PYENV_ROOT="$HOME/.pyenv"
+        if [ -f "$PYENV_ROOT/bin/pyenv" ]; then
+          pushd "$PYENV_ROOT" && git pull && popd
+        else
+          rm -rf "$PYENV_ROOT" && git clone --depth 1 https://github.com/yyuu/pyenv.git "$PYENV_ROOT"
+        fi
+        export PYPY_VERSION="4.0.1"
+        "$PYENV_ROOT/bin/pyenv" install --skip-existing "pypy-$PYPY_VERSION"
+        virtualenv --python="$PYENV_ROOT/versions/pypy-$PYPY_VERSION/bin/python" "$HOME/virtualenvs/pypy-$PYPY_VERSION"
+        source "$HOME/virtualenvs/pypy-$PYPY_VERSION/bin/activate"
+        pip install pytest
+      fi
+  - pip install -U pip
+  - pip uninstall -y py pytest
+  - pip install -r requirements.txt
+  - pip install coveralls
+
 script:
-  - coverage run --source devp2p setup.py test
+  - coverage run --source devp2p setup.py test --addopts "-v --no-print-logs"
 
 after_success:
   - coveralls

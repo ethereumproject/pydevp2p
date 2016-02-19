@@ -1,3 +1,5 @@
+import random
+
 from devp2p import peermanager
 from devp2p.service import BaseService
 from devp2p.discovery import NodeDiscovery
@@ -67,9 +69,12 @@ def serve_until_stopped(apps):
         app.stop()
 
 
-def run(app_class, service_class, num_nodes=3, seed=0, min_peers=2, max_peers=2):
+def run(app_class, service_class, num_nodes=3, seed=0, min_peers=2, max_peers=2, random_port=False):
     gevent.get_hub().SYSTEM_ERROR = BaseException
-    base_port = 29870
+    if random_port:
+        base_port = random.randint(10000, 60000)
+    else:
+        base_port = 29870
 
     # get bootstrap node (node0) enode
     bootstrap_node_privkey = mk_privkey('%d:udp:%d' % (seed, 0))

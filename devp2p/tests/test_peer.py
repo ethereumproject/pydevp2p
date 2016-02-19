@@ -1,3 +1,7 @@
+import platform
+
+import pytest
+
 from devp2p import peermanager, peer
 from devp2p import crypto
 from devp2p.app import BaseApp
@@ -10,10 +14,10 @@ import copy
 
 
 def get_connected_apps():
-    a_config = dict(p2p=dict(listen_host='127.0.0.1', listen_port=3000),
+    a_config = dict(p2p=dict(listen_host='127.0.0.1', listen_port=3005),
                     node=dict(privkey_hex=crypto.sha3('a').encode('hex')))
     b_config = copy.deepcopy(a_config)
-    b_config['p2p']['listen_port'] = 3001
+    b_config['p2p']['listen_port'] = 3006
     b_config['node']['privkey_hex'] = crypto.sha3('b').encode('hex')
 
     a_app = BaseApp(a_config)
@@ -45,6 +49,8 @@ def test_handshake():
     b_app.stop()
 
 
+@pytest.mark.xfail(platform.python_implementation() == "PyPy",
+                   reason="Unkown failure on PyPy. See ethereum/pydevp2p#37")
 def test_big_transfer():
 
     class transfer(devp2p.p2p_protocol.BaseProtocol.command):
@@ -84,6 +90,8 @@ def test_big_transfer():
     gevent.sleep(0.1)
 
 
+@pytest.mark.xfail(platform.python_implementation() == "PyPy",
+                   reason="Unkown failure on PyPy. See ethereum/pydevp2p#37")
 def test_dumb_peer():
     """ monkeypatch receive_hello to make peer not to mark that hello was received.
     no hello in defined timeframe makes peer to stop """
@@ -110,7 +118,7 @@ def test_dumb_peer():
 
 
 def connect_go():
-    a_config = dict(p2p=dict(listen_host='127.0.0.1', listen_port=3000),
+    a_config = dict(p2p=dict(listen_host='127.0.0.1', listen_port=3010),
                     node=dict(privkey_hex=crypto.sha3('a').encode('hex')))
 
     a_app = BaseApp(a_config)

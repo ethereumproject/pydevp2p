@@ -209,6 +209,7 @@ def test_eviction_timeout():
     assert node not in proto.routing.bucket_by_node(node).replacement_cache
 
 
+@pytest.mark.timeout(15)
 def test_eviction_node_active():
     """
     active nodes (replying in time) should not be evicted
