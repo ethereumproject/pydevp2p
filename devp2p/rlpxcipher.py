@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import random
 import struct
+import os
+import rlp
+from rlp import sedes
 from devp2p.crypto import sha3
 from Crypto.Hash import keccak
-sha3_256 = lambda x: keccak.new(digest_bits=256, update_after_digest=True, data=x)
 from devp2p.crypto import ECCx
 from devp2p.crypto import ecdsa_recover
 from devp2p.crypto import ecdsa_verify
@@ -11,6 +13,7 @@ import pyelliptic
 from devp2p.utils import ienc  # integer encode
 import Crypto.Cipher.AES as AES
 
+sha3_256 = lambda x: keccak.new(digest_bits=256, update_after_digest=True, data=x)
 
 def sxor(s1, s2):
     "string xor"
@@ -22,21 +25,12 @@ def ceil16(x):
     return x if x % 16 == 0 else x + 16 - (x % 16)
 
 
-class RLPxSessionError(Exception):
-    pass
+class RLPxSessionError(Exception): pass
+class AuthenticationError(RLPxSessionError): pass
+class InvalidKeyError(RLPxSessionError): pass
+class FormatError(RLPxSessionError): pass
 
-
-class AuthenticationError(RLPxSessionError):
-    pass
-
-
-class InvalidKeyError(RLPxSessionError):
-    pass
-
-
-class FormatError(RLPxSessionError):
-    pass
-
+supported_rlpx_version = 4
 
 class RLPxSession(object):
 
@@ -54,18 +48,16 @@ class RLPxSession(object):
     egress_mac = None
     ingress_mac = None
     is_ready = False
-    remote_token_found = False
     remote_pubkey = None
-    auth_message_length = 194
-    auth_message_ct_length = auth_message_length + ECCx.ecies_encrypt_overhead_length
-    auth_ack_message_length = 97
-    auth_ack_message_ct_length = auth_ack_message_length + ECCx.ecies_encrypt_overhead_length
+    remote_version = 0
+    got_eip8_auth, got_eip8_ack = False, False
 
-    def __init__(self, ecc, is_initiator=False, token_by_pubkey=dict(), ephemeral_privkey=None):
+    def __init__(self, ecc, is_initiator=False, ephemeral_privkey=None):
         self.ecc = ecc
         self.is_initiator = is_initiator
-        self.token_by_pubkey = token_by_pubkey
         self.ephemeral_ecc = ECCx(raw_privkey=ephemeral_privkey)
+
+    ### frame handling
 
     def encrypt(self, header, frame):
         assert self.is_ready is True
@@ -155,6 +147,8 @@ class RLPxSession(object):
         frame = self.decrypt_body(data[32:], body_size)
         return dict(header=header, frame=frame, bytes_read=32 + ceil16(len(frame)) + 16)
 
+    ### handshake auth message handling
+
     def create_auth_message(self, remote_pubkey, ephemeral_privkey=None, nonce=None):
         """
         1. initiator generates ecdhe-random and nonce and creates auth
@@ -174,14 +168,9 @@ class RLPxSession(object):
             raise InvalidKeyError('invalid remote pubkey')
         self.remote_pubkey = remote_pubkey
 
-        token = self.token_by_pubkey.get(remote_pubkey)
-        if not token:  # new
-            ecdh_shared_secret = self.ecc.get_ecdh_key(remote_pubkey)
-            token = ecdh_shared_secret
-            flag = 0x0
-        else:
-            flag = 0x1
-
+        ecdh_shared_secret = self.ecc.get_ecdh_key(remote_pubkey)
+        token = ecdh_shared_secret
+        flag = 0x0
         self.initiator_nonce = nonce or sha3(ienc(random.randint(0, 2 ** 256 - 1)))
         assert len(self.initiator_nonce) == 32
 
@@ -203,19 +192,20 @@ class RLPxSession(object):
         assert len(auth_message) == 65 + 32 + 64 + 32 + 1 == 194
         return auth_message
 
+    eip8_auth_sedes = sedes.List(
+        [
+            sedes.Binary(min_length=65, max_length=65), # sig
+            sedes.Binary(min_length=64, max_length=64), # pubkey
+            sedes.Binary(min_length=32, max_length=32), # nonce
+            sedes.BigEndianInt()                        # version
+        ], strict=False)
+    
     def encrypt_auth_message(self, auth_message, remote_pubkey=None):
         assert self.is_initiator
         remote_pubkey = remote_pubkey or self.remote_pubkey
         self.auth_init = self.ecc.ecies_encrypt(auth_message, remote_pubkey)
-        assert len(self.auth_init) == self.auth_message_ct_length
+        assert len(self.auth_init) == 307
         return self.auth_init
-
-    def encrypt_auth_ack_message(self, auth_message, remote_pubkey=None):
-        assert not self.is_initiator
-        remote_pubkey = remote_pubkey or self.remote_pubkey
-        self.auth_ack = self.ecc.ecies_encrypt(auth_message, remote_pubkey)
-        assert len(self.auth_ack) == self.auth_ack_message_ct_length
-        return self.auth_ack
 
     def decode_authentication(self, ciphertext):
         """
@@ -227,74 +217,147 @@ class RLPxSession(object):
         optional: remote derives secrets and preemptively sends protocol-handshake (steps 9,11,8,10)
         """
         assert not self.is_initiator
-
-        self.auth_init = ciphertext
+        assert len(ciphertext) >= 307
         try:
-            auth_message = self.ecc.ecies_decrypt(ciphertext)
-        except RuntimeError as e:
-            raise AuthenticationError(e)
-
-        # S || H(ephemeral-pubk) || pubk || nonce || 0x[0|1]
-        assert len(auth_message) == 65 + 32 + 64 + 32 + 1 == 194 == self.auth_message_length
-        signature = auth_message[:65]
-        H_initiator_ephemeral_pubkey = auth_message[65:65 + 32]
-        initiator_pubkey = auth_message[65 + 32:65 + 32 + 64]
-        if not self.ecc.is_valid_key(initiator_pubkey):
-            raise InvalidKeyError('invalid initiator pubkey')
-        self.remote_pubkey = initiator_pubkey
-        self.initiator_nonce = auth_message[65 + 32 + 64:65 + 32 + 64 + 32]
-        known_flag = bool(ord(auth_message[65 + 32 + 64 + 32:]))
-
-        # token or new ecdh_shared_secret
-        if known_flag:
-            self.remote_token_found = True
-            # what todo if remote has token, but local forgot it.
-            #   reply with token not found. FIXME!!!
-            token = self.token_by_pubkey.get(initiator_pubkey)
-            assert token  # FIXME continue session with ecdh_key and send flag in auth_ack
-        else:
-            token = self.ecc.get_ecdh_key(initiator_pubkey)
-
-        # verify auth
-        # S(ephemeral-privk, ecdh-shared-secret ^ nonce)
-        signed = sxor(token, self.initiator_nonce)
-
-        # recover initiator ephemeral pubkey
-        self.remote_ephemeral_pubkey = ecdsa_recover(signed, signature)
+            (size, sig, initiator_pubkey, nonce, version) = self.decode_auth_plain(ciphertext)
+        except AuthenticationError:
+            (size, sig, initiator_pubkey, nonce, version) = self.decode_auth_eip8(ciphertext)
+            self.got_eip8_auth = True
+        self.auth_init = ciphertext[:size]
+        # recover initiator ephemeral pubkey from sig
+        #     S(ephemeral-privk, ecdh-shared-secret ^ nonce)
+        token = self.ecc.get_ecdh_key(initiator_pubkey)
+        self.remote_ephemeral_pubkey = ecdsa_recover(sxor(token, nonce), sig)
         if not self.ecc.is_valid_key(self.remote_ephemeral_pubkey):
             raise InvalidKeyError('invalid remote ephemeral pubkey')
-        if not ecdsa_verify(self.remote_ephemeral_pubkey, signature, signed):
-            raise AuthenticationError('could not verify signature')
+        self.initiator_nonce = nonce
+        self.remote_pubkey = initiator_pubkey
+        self.remote_version = version
+        return ciphertext[size:]
 
-        # checks that recovery of signature == H(ephemeral-pubk)
-        assert H_initiator_ephemeral_pubkey == sha3(self.remote_ephemeral_pubkey)
+    def decode_auth_plain(self, ciphertext):
+        """
+        decode legacy pre-EIP-8 auth message format
+        """
+        try:
+            message = self.ecc.ecies_decrypt(ciphertext[:307])
+        except RuntimeError as e:
+            raise AuthenticationError(e)
+        assert len(message) == 194
+        signature = message[:65]
+        pubkey = message[65+32 : 65+32+64]
+        if not self.ecc.is_valid_key(pubkey):
+            raise InvalidKeyError('invalid initiator pubkey')
+        nonce = message[65+32+64 : 65+32+64+32]
+        known_flag = bool(ord(message[65+32+64+32:]))
+        assert known_flag == 0
+        return (307, signature, pubkey, nonce, 4)
 
-    def create_auth_ack_message(self, ephemeral_pubkey=None, nonce=None, token_found=False):
+    def decode_auth_eip8(self, ciphertext):
+        """
+        decode EIP-8 auth message format
+        """
+        size = struct.unpack('>H', ciphertext[:2])[0] + 2
+        assert len(ciphertext) >= size
+        try:
+            message = self.ecc.ecies_decrypt(ciphertext[2:size], shared_mac_data=ciphertext[:2])
+        except RuntimeError as e:
+            raise AuthenticationError(e)
+        values = rlp.decode(message, sedes=self.eip8_auth_sedes, strict=False)
+        assert len(values) >= 4
+        return (size,) + values[:4]
+
+    ### handshake ack message handling
+
+    def create_auth_ack_message(self, version=supported_rlpx_version, eip8=False, ephemeral_pubkey=None, nonce=None):
         """
         authRecipient = E(remote-pubk, remote-ephemeral-pubk || nonce || 0x1) // token found
         authRecipient = E(remote-pubk, remote-ephemeral-pubk || nonce || 0x0) // token not found
 
-        nonce and empehemeral-pubk are local!
+        nonce, ephemeral_pubkey, version are local!
         """
         assert not self.is_initiator
         ephemeral_pubkey = ephemeral_pubkey or self.ephemeral_ecc.raw_pubkey
         self.responder_nonce = nonce or sha3(ienc(random.randint(0, 2 ** 256 - 1)))
-
-        flag = chr(1 if token_found else 0)
-        msg = ephemeral_pubkey + self.responder_nonce + flag
-        assert len(msg) == 64 + 32 + 1 == 97 == self.auth_ack_message_length
+        if eip8 or self.got_eip8_auth:
+            msg = self.create_eip8_auth_ack_message(ephemeral_pubkey, self.responder_nonce, version)
+            assert len(msg) > 97
+        else:
+            msg = ephemeral_pubkey + self.responder_nonce + '\x00'
+            assert len(msg) == 97
         return msg
+
+    eip8_ack_sedes = sedes.List(
+        [
+            sedes.Binary(min_length=64, max_length=64), # ephemeral pubkey
+            sedes.Binary(min_length=32, max_length=32), # nonce
+            sedes.BigEndianInt()                        # version
+        ], strict=False)
+
+    def create_eip8_auth_ack_message(self, ephemeral_pubkey, nonce, version):
+        data = rlp.encode((ephemeral_pubkey, nonce, version), sedes=self.eip8_ack_sedes)
+        pad = os.urandom(random.randint(100, 250))
+        return data + pad
+
+    def encrypt_auth_ack_message(self, ack_message, eip8=False, remote_pubkey=None):
+        assert not self.is_initiator
+        remote_pubkey = remote_pubkey or self.remote_pubkey
+        if eip8 or self.got_eip8_auth:
+            # The EIP-8 version has an authenticated length prefix.
+            prefix = struct.pack('>H', len(ack_message) + self.ecc.ecies_encrypt_overhead_length)
+            self.auth_ack = self.ecc.ecies_encrypt(ack_message, remote_pubkey, shared_mac_data=prefix)
+            self.auth_ack = prefix + self.auth_ack
+        else:
+            self.auth_ack = self.ecc.ecies_encrypt(ack_message, remote_pubkey)
+            assert len(self.auth_ack) == 210
+        return self.auth_ack
 
     def decode_auth_ack_message(self, ciphertext):
         assert self.is_initiator
-        self.auth_ack = ciphertext
-        auth_ack_message = self.ecc.ecies_decrypt(ciphertext)
-        assert len(auth_ack_message) == 64 + 32 + 1
-        self.remote_ephemeral_pubkey = auth_ack_message[:64]
+        assert len(ciphertext) >= 210
+        try:
+            (size, eph_pubkey, nonce, version) = self.decode_ack_plain(ciphertext)
+        except AuthenticationError:
+            (size, eph_pubkey, nonce, version) = self.decode_ack_eip8(ciphertext)
+            self.got_eip8_ack = True
+        self.auth_ack = ciphertext[:size]
+        self.remote_ephemeral_pubkey = eph_pubkey[:64]
+        self.responder_nonce = nonce
+        self.remote_version = version
         if not self.ecc.is_valid_key(self.remote_ephemeral_pubkey):
             raise InvalidKeyError('invalid remote ephemeral pubkey')
-        self.responder_nonce = auth_ack_message[64:64 + 32]
-        self.remote_token_found = bool(ord(auth_ack_message[-1]))
+        return ciphertext[size:]
+
+    def decode_ack_plain(self, ciphertext):
+        """
+        decode legacy pre-EIP-8 ack message format
+        """
+        try:
+            message = self.ecc.ecies_decrypt(ciphertext[:210])
+        except RuntimeError as e:
+            raise AuthenticationError(e)
+        assert len(message) == 64+32+1
+        eph_pubkey = message[:64]
+        nonce = message[64:64 + 32]
+        known = ord(message[-1])
+        assert known == 0
+        return (210, eph_pubkey, nonce, 4)
+
+    def decode_ack_eip8(self, ciphertext):
+        """
+        decode EIP-8 ack message format
+        """
+        size = struct.unpack('>H', ciphertext[:2])[0] + 2
+        assert len(ciphertext) == size
+        try:
+            message = self.ecc.ecies_decrypt(ciphertext[2:size], shared_mac_data=ciphertext[:2])
+        except RuntimeError as e:
+            raise AuthenticationError(e)
+        values = rlp.decode(message, sedes=self.eip8_ack_sedes, strict=False)
+        assert len(values) >= 3
+        return (size,) + values[:3]
+
+    ### handshake key derivation
 
     def setup_cipher(self):
         assert self.responder_nonce
@@ -318,7 +381,6 @@ class RLPxSession(object):
 
         # token = sha3(shared-secret)
         self.token = sha3(shared_secret)
-        self.token_by_pubkey[self.remote_pubkey] = self.token
 
         # aes-secret = sha3(ecdhe-shared-secret || shared-secret)
         self.aes_secret = sha3(ecdhe_shared_secret + shared_secret)

@@ -92,7 +92,6 @@ class P2PProtocol(BaseProtocol):
 
     class hello(BaseProtocol.command):
         cmd_id = 0
-
         structure = [
             ('version', sedes.big_endian_int),
             ('client_version_string', sedes.binary),
@@ -100,6 +99,9 @@ class P2PProtocol(BaseProtocol):
             ('listen_port', sedes.big_endian_int),
             ('remote_pubkey', sedes.binary)
         ]
+        # don't throw for additional list elements as
+        # mandated by EIP-8.
+        decode_strict = False
 
         def create(self, proto):
             return dict(version=proto.version,
@@ -115,10 +117,6 @@ class P2PProtocol(BaseProtocol):
             if data['remote_pubkey'] == proto.config['node']['id']:
                 log.debug('connected myself')
                 return proto.send_disconnect(reason=reasons.connected_to_self)
-            if data['version'] != proto.version:
-                log.debug('incompatible network protocols', peer=proto.peer,
-                          expected=proto.version, received=data['version'])
-                return proto.send_disconnect(reason=reasons.incompatibel_p2p_version)
 
             proto.peer.receive_hello(proto, **data)
             # super(hello, self).receive(proto, data)
@@ -127,7 +125,7 @@ class P2PProtocol(BaseProtocol):
     @classmethod
     def get_hello_packet(cls, peer):
         "special: we need this packet before the protocol can be initalized"
-        res = dict(version=cls.version,
+        res = dict(version=55,
                    client_version_string=peer.config['client_version_string'],
                    capabilities=peer.capabilities,
                    listen_port=peer.config['p2p']['listen_port'],
