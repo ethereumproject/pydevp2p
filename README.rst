@@ -47,7 +47,7 @@ Dependencies
 
 On Ubuntu::
 
-    $ sudo apt-get install libssl-dev libffi-dev libtool
+    $ sudo apt-get install libssl-dev build-essential automake pkg-config libtool libffi-dev libgmp-dev
 
 Features
 --------
