@@ -25,7 +25,7 @@ test_requirements = [
 
 # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
 # see: https://github.com/ethereum/pyethapp/wiki/Development:-Versions-and-Releases
-version = '0.6.2'
+version = '0.7.0'
 
 setup(
     name='devp2p',
