@@ -44,4 +44,5 @@ deploy:
     tags: true
     repo: ethereum/pydevp2p
     branch: develop
+    python: 2.7
   distributions: sdist bdist_wheel
