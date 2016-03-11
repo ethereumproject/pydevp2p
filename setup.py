@@ -18,9 +18,9 @@ install_requires_replacements = {
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
 test_requirements = [
-    'pytest==2.8.7',
+    'pytest==2.9.0',
     'pytest-catchlog==1.2.2',
-    'pytest-timeout==1.0'
+    'pytest-timeout==1.0.0'
 ]
 
 # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
