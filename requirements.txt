@@ -1,6 +1,6 @@
 pyelliptic
 wheel
-gevent==1.1rc3
+gevent>=1.1.0
 tinyrpc
 bitcoin
 ipaddress
