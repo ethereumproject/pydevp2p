@@ -220,7 +220,7 @@ def test_disconnect():
     app_helper.assert_config = lambda a, b, c, d: True
 
     app_helper.run(ExampleApp, ExampleServiceAppDisconnect,
-                   num_nodes=3, min_peers=2, max_peers=1)
+                   num_nodes=3, min_peers=2, max_peers=1, random_port=True)
 
 
 if __name__ == "__main__":
