@@ -5,6 +5,10 @@ python:
 cache:
   directories:
   - "$HOME/.cache/pip"
+# Gevent still seems a bit wobbly on PyPy - allow failures for now
+matrix:
+  allow_failures:
+    - python: pypy
 install:
 - |
   if [ "$TRAVIS_PYTHON_VERSION" = "pypy" ]; then
