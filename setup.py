@@ -13,7 +13,6 @@ history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 install_requires = set(x.strip() for x in open('requirements.txt'))
 install_requires_replacements = {
-    'git+https://github.com/ulope/secp256k1-py#egg=secp256k1': 'secp256k1'
 }
 install_requires = [install_requires_replacements.get(r, r) for r in install_requires]
 
@@ -39,9 +38,6 @@ setup(
     package_dir={'devp2p': 'devp2p'},
     include_package_data=True,
     install_requires=install_requires,
-    dependency_links=[
-        "https://github.com/ulope/secp256k1-py/archive/master.zip#egg=secp256k1-0.11.1"
-    ],
     license="MIT",
     zip_safe=False,
     keywords='devp2p',
