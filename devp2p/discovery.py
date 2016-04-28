@@ -46,13 +46,11 @@ class Address(object):
     def __init__(self, ip, udp_port, tcp_port=0, from_binary=False):
         tcp_port = tcp_port or udp_port
         if from_binary:
-            assert len(ip) in (4, 16), repr(ip)
             self.udp_port = dec_port(udp_port)
             self.tcp_port = dec_port(tcp_port)
         else:
             assert isinstance(udp_port, (int, long))
             assert isinstance(tcp_port, (int, long))
-            ip = unicode(ip)
             self.udp_port = udp_port
             self.tcp_port = tcp_port
         try:
@@ -65,7 +63,7 @@ class Address(object):
                 unicode(ai[4][0])
                 for ai in gevent.socket.getaddrinfo(ip, None)
                 if ai[0] == AF_INET
-                or (ai[0] == AF_INET6 and ai[4][3] == 0)
+                    or (ai[0] == AF_INET6 and ai[4][3] == 0)
             ]
             # Arbitrarily choose the first of the resolved addresses
             self._ip = ipaddress.ip_address(ips[0])
@@ -99,8 +97,8 @@ class Address(object):
     to_endpoint = to_binary
 
     @classmethod
-    def from_binary(self, ip, udp_port, tcp_port='\x00\x00'):
-        return Address(ip, udp_port, tcp_port, from_binary=True)
+    def from_binary(cls, ip, udp_port, tcp_port='\x00\x00'):
+        return cls(ip, udp_port, tcp_port, from_binary=True)
     from_endpoint = from_binary
 
 
@@ -415,9 +413,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
             log.error('invalid pong payload', payload=payload)
             return
         assert len(payload[0]) == 3, payload
-        assert len(payload[0][0]) in (4, 16), payload
 
-        my_address = Address.from_endpoint(*payload[0])
+        # Verify address is valid
+        Address.from_endpoint(*payload[0])
         echoed = payload[1]
         if nodeid in self.nodes:
             node = self.get_node(nodeid)
@@ -497,9 +495,6 @@ class DiscoveryProtocol(kademlia.WireInterface):
             log.warn('received duplicates')
 
         for n in neighbours_set:
-            if len(n) != 4 or len(n[0]) not in (4, 16):
-                log.error('invalid neighbours format', neighbours=n)
-                return
             n = list(n)
             nodeid = n.pop()
             address = Address.from_endpoint(*n)
