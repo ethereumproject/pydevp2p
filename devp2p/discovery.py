@@ -478,11 +478,12 @@ class DiscoveryProtocol(kademlia.WireInterface):
         assert isinstance(neighbours, list)
         assert not neighbours or isinstance(neighbours[0], Node)
         nodes = []
+        neighbours = sorted(neighbours)
         for n in neighbours:
             l = n.address.to_endpoint() + [n.pubkey]
             nodes.append(l)
         log.debug('>>> neighbours', remoteid=node, count=len(nodes), local=self.this_node,
-                  neighbours=sorted(neighbours))
+                  neighbours=neighbours)
         # FIXME: don't brake udp packet size / chunk message / also when receiving
         message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  # FIXME
         self.send(node, message)
