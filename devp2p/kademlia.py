@@ -41,6 +41,7 @@ def random_nodeid():
     return random.randint(0, k_max_node_id)
 
 
+@total_ordering
 class Node(object):
 
     def __init__(self, pubkey):
@@ -58,11 +59,18 @@ class Node(object):
     def id_distance(self, id):
         return self.id ^ id
 
+    def __lt__(self, other):
+        if not isinstance(other, self.__class__):
+            return super(Node, self).__lt__(other)
+        return self.id < other.id
+
     def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return super(Node, self).__eq__(other)
         return self.pubkey == other.pubkey
 
     def __ne__(self, other):
-        return not bool(self.pubkey == other.pubkey)
+        return not self == other
 
     def __repr__(self):
         return '<Node(%s)>' % self.pubkey[:4].encode('hex')
