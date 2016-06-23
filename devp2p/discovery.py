@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
-
 import time
+from socket import AF_INET, AF_INET6
+
 import gevent
 import gevent.socket
-from socket import AF_INET, AF_INET6
-from devp2p import crypto
-import rlp
-from devp2p import utils
-from devp2p import kademlia
-from service import BaseService
-from gevent.server import DatagramServer
-import slogging
 import ipaddress
+import rlp
+from gevent.server import DatagramServer
+
+import slogging
+from devp2p import crypto
+from devp2p import kademlia
+from devp2p import utils
+from service import BaseService
+
 
 log = slogging.get_logger('p2p.discovery')
 

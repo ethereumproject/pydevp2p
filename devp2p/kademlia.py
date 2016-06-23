@@ -14,13 +14,15 @@ the idle bucket-refresh interval is 3600 seconds.
 Aside from the previously described exclusions, node discovery closely follows system
 and protocol described by Maymounkov and Mazieres.
 """
-
-from utils import big_endian_to_int
-from crypto import sha3
 import operator
-import time
 import random
+import time
+from functools import total_ordering
+
 import slogging
+from crypto import sha3
+from utils import big_endian_to_int
+
 log = slogging.get_logger('p2p.discovery.kademlia')
 
 
