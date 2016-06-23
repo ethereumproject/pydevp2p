@@ -485,7 +485,7 @@ class DiscoveryProtocol(kademlia.WireInterface):
         log.debug('>>> neighbours', remoteid=node, count=len(nodes), local=self.this_node,
                   neighbours=neighbours)
         # FIXME: don't brake udp packet size / chunk message / also when receiving
-        message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  # FIXME
+        message = self.pack(self.cmd_id_map['neighbours'], [nodes[:12]])  # FIXME
         self.send(node, message)
 
     def recv_neighbours(self, nodeid, payload, mdc):
