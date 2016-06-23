@@ -326,8 +326,9 @@ class DiscoveryProtocol(kademlia.WireInterface):
             return
         cmd = getattr(self, 'recv_' + self.rev_cmd_id_map[cmd_id])
         nodeid = remote_pubkey
-        if nodeid not in self.nodes:  # set intermediary address
-            self.get_node(nodeid, address)
+        remote = self.get_node(nodeid, address)
+        log.debug("Dispatching received message", local=self.this_node, remoteid=remote,
+                  cmd=self.rev_cmd_id_map[cmd_id])
         cmd(nodeid, payload, mdc)
 
     def send(self, node, message):
@@ -480,7 +481,8 @@ class DiscoveryProtocol(kademlia.WireInterface):
         for n in neighbours:
             l = n.address.to_endpoint() + [n.pubkey]
             nodes.append(l)
-        log.debug('>>> neighbours', remoteid=node, count=len(nodes))
+        log.debug('>>> neighbours', remoteid=node, count=len(nodes), local=self.this_node,
+                  neighbours=sorted(neighbours))
         # FIXME: don't brake udp packet size / chunk message / also when receiving
         message = self.pack(self.cmd_id_map['neighbours'], [nodes][:12])  # FIXME
         self.send(node, message)

@@ -557,8 +557,8 @@ class KademliaProtocol(object):
         add all nodes to the list
         """
         assert isinstance(neighbours, list)
-        log.debug('recv neighbours', remoteid=remote, num=len(
-            neighbours), local=self.this_node, neighbours=neighbours)
+        log.debug('recv neighbours', remoteid=remote, num=len(neighbours), local=self.this_node,
+                  neighbours=neighbours)
         neighbours = [n for n in neighbours if n != self.this_node]
         neighbours = [n for n in neighbours if n not in self.routing]
 
