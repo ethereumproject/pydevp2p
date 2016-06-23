@@ -489,24 +489,22 @@ class DiscoveryProtocol(kademlia.WireInterface):
         self.send(node, message)
 
     def recv_neighbours(self, nodeid, payload, mdc):
-        node = self.get_node(nodeid)
+        remote = self.get_node(nodeid)
         assert len(payload) == 1
         neighbours_lst = payload[0]
         assert isinstance(neighbours_lst, list)
-        log.debug('<<< neigbours', remoteid=node, count=len(neighbours_lst))
-        neighbours = []
-        neighbours_set = set(tuple(x) for x in neighbours_lst)
-        if len(neighbours_set) < len(neighbours_lst):
-            log.warn('received duplicates')
 
-        for n in neighbours_set:
-            n = list(n)
+        neighbours = []
+        for n in neighbours_lst:
             nodeid = n.pop()
             address = Address.from_endpoint(*n)
             node = self.get_node(nodeid, address)
             assert node.address
             neighbours.append(node)
-        self.kademlia.recv_neighbours(node, neighbours)
+
+        log.debug('<<< neighbours', remoteid=remote, local=self.this_node, neighbours=neighbours,
+                  count=len(neighbours_lst))
+        self.kademlia.recv_neighbours(remote, neighbours)
 
 
 class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
